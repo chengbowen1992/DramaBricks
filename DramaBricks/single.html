@@ -52,7 +52,7 @@
         /* 调试控制面板 */
         .debug-panel {
             position: fixed;
-            top: 80px;
+            top: 130px;
             right: 20px;
             background: rgba(22, 33, 62, 0.95);
             padding: 15px;
@@ -63,7 +63,7 @@
             flex-direction: column;
             gap: 15px;
             min-width: 250px;
-            max-height: 70vh;
+            max-height: 60vh;
             overflow-y: auto;
         }
         .debug-panel.visible {
@@ -142,19 +142,29 @@
             box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
         }
 
-        /* 调试控制面板 */
-        .debug-toggle {
+        /* 开关容器 */
+        .toggle-container {
             position: fixed;
             top: 20px;
             right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+        }
+
+        /* 调试控制面板 */
+        .debug-toggle {
             background: rgba(22, 33, 62, 0.9);
             padding: 12px 20px;
             border-radius: 8px;
             display: flex;
             align-items: center;
             gap: 10px;
-            z-index: 100;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .camera-toggle input[type="checkbox"]:checked {
+            background: #3b82f6;
         }
         .debug-toggle label {
             font-size: 14px;
@@ -191,26 +201,30 @@
 
         .main-container {
             display: flex;
-            gap: 20px;
+            justify-content: center;
             padding: 20px;
             align-items: flex-start;
             transform-origin: center center;
             transition: transform 0.3s ease;
         }
-        .main-container.no-debug {
-            justify-content: center;
-        }
 
-        /* 视频面板 */
+        /* 视频面板 - 固定在左侧 */
         .video-panel {
+            position: fixed;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
             background: rgba(22, 33, 62, 0.8);
             border-radius: 12px;
             padding: 15px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            transition: opacity 0.3s;
+            transition: opacity 0.3s, visibility 0.3s;
+            z-index: 50;
         }
         .video-panel.hidden {
-            display: none;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
         }
         .video-panel h3 {
             margin-bottom: 10px;
@@ -221,8 +235,8 @@
         #videoCanvas {
             border-radius: 8px;
             transform: scaleX(-1);
-            width: 400px;
-            height: 225px;
+            width: 320px;
+            height: 180px;
         }
 
         /* 游戏面板 */
@@ -400,19 +414,32 @@
                 top: 10px;
                 left: 10px;
             }
-            .debug-toggle {
-                padding: 8px 12px;
+            .toggle-container {
                 top: 10px;
                 right: 10px;
+                gap: 5px;
+            }
+            .debug-toggle {
+                padding: 8px 12px;
             }
             .debug-toggle label {
                 font-size: 12px;
             }
+            .video-panel {
+                left: 10px;
+                top: auto;
+                bottom: 10px;
+                transform: none;
+            }
+            #videoCanvas {
+                width: 200px;
+                height: 112px;
+            }
             .debug-panel {
-                top: 60px;
+                top: 110px;
                 right: 10px;
-                min-width: 200px;
-                max-height: 50vh;
+                min-width: 180px;
+                max-height: 40vh;
                 padding: 10px;
             }
             .game-over-text {
@@ -442,9 +469,15 @@
 <body>
     <a href="index.html" class="back-btn">← 返回主页</a>
 
-    <div class="debug-toggle">
-        <label for="debugMode">🐛 调试模式</label>
-        <input type="checkbox" id="debugMode">
+    <div class="toggle-container">
+        <div class="debug-toggle camera-toggle">
+            <label for="cameraMode">📷 镜头模式</label>
+            <input type="checkbox" id="cameraMode">
+        </div>
+        <div class="debug-toggle">
+            <label for="debugMode">🐛 调试模式</label>
+            <input type="checkbox" id="debugMode">
+        </div>
     </div>
 
     <div class="debug-panel" id="debugPanel">
@@ -518,15 +551,16 @@
     <audio id="boardSound"><source src="assets/audio/ai_board.wav" type="audio/wav"></audio>
     <audio id="bombSound"><source src="assets/audio/ai_bomb.wav" type="audio/wav"></audio>
 
-    <div class="main-container" id="mainContainer">
-        <div class="video-panel hidden" id="videoPanel">
-            <h3>📷 手势识别</h3>
-            <canvas id="videoCanvas" width="640" height="360"></canvas>
-            <div class="status">
-                状态: <span id="status">正在初始化...</span>
-            </div>
+    <!-- 视频面板 - 固定在左侧 -->
+    <div class="video-panel hidden" id="videoPanel">
+        <h3>📷 手势识别</h3>
+        <canvas id="videoCanvas" width="640" height="360"></canvas>
+        <div class="status">
+            状态: <span id="status">正在初始化...</span>
         </div>
+    </div>
 
+    <div class="main-container" id="mainContainer">
         <div class="game-panel">
             <h2>🎯 单人热身赛</h2>
 
@@ -568,52 +602,47 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
 
     <script>
-        // ============ 调试模式控制 ============
+        // ============ 模式控制 ============
+        const cameraCheckbox = document.getElementById('cameraMode');
         const debugCheckbox = document.getElementById('debugMode');
         const videoPanel = document.getElementById('videoPanel');
         const mainContainer = document.getElementById('mainContainer');
         const debugPanel = document.getElementById('debugPanel');
 
-        debugCheckbox.addEventListener('change', (e) => {
+        // 镜头模式开关 - 控制摄像头窗口
+        cameraCheckbox.addEventListener('change', (e) => {
             if (e.target.checked) {
                 videoPanel.classList.remove('hidden');
-                mainContainer.classList.remove('no-debug');
-                debugPanel.classList.add('visible');
             } else {
                 videoPanel.classList.add('hidden');
-                mainContainer.classList.add('no-debug');
-                debugPanel.classList.remove('visible');
             }
         });
 
-        // 默认不显示调试面板
-        mainContainer.classList.add('no-debug');
+        // 调试模式开关 - 只控制调试面板
+        debugCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                debugPanel.classList.add('visible');
+            } else {
+                debugPanel.classList.remove('visible');
+            }
+        });
 
         // ============ 自动缩放适配 ============
         function adjustScale() {
             const container = document.getElementById('mainContainer');
             if (!container) return;
 
-            // 游戏面板的原始尺寸（非调试模式下只有游戏面板）
+            // 游戏面板的原始尺寸（游戏面板始终居中，镜头和调试面板独立定位）
             const gameWidth = 430;  // 游戏面板宽度 + padding
             const gameHeight = 620; // 游戏面板高度 + padding
-
-            // 调试模式下需要更多宽度（视频面板 + 游戏面板）
-            const debugWidth = 880;
-            const debugHeight = 620;
 
             // 获取可用视口尺寸（减去一些边距）
             const viewportWidth = window.innerWidth - 40;
             const viewportHeight = window.innerHeight - 100; // 留出顶部按钮空间
 
-            // 根据当前模式选择目标尺寸
-            const isDebugMode = debugCheckbox.checked;
-            const targetWidth = isDebugMode ? debugWidth : gameWidth;
-            const targetHeight = isDebugMode ? debugHeight : gameHeight;
-
             // 计算缩放比例（取宽高中较小的比例，确保完全显示）
-            const scaleX = viewportWidth / targetWidth;
-            const scaleY = viewportHeight / targetHeight;
+            const scaleX = viewportWidth / gameWidth;
+            const scaleY = viewportHeight / gameHeight;
             let scale = Math.min(scaleX, scaleY, 1); // 最大不超过1（不放大）
 
             // 最小缩放限制，防止过小
@@ -631,11 +660,6 @@
         // 监听屏幕方向变化（移动设备）
         window.addEventListener('orientationchange', () => {
             setTimeout(adjustScale, 100); // 延迟执行，等待方向变化完成
-        });
-
-        // 调试模式切换时重新计算缩放
-        debugCheckbox.addEventListener('change', () => {
-            setTimeout(adjustScale, 50);
         });
 
         // 初始调用
