@@ -1216,11 +1216,11 @@
                 game.hand.isOpen = isOpen;
                 game.hand.x = 1 - palmCenter.x; // 镜像
 
-                // 防抖：握拳→张开发射球
+                // 防抖：握拳→张开发射球（仅在没有球时才能发射）
                 if (!isOpen) {
                     game.hand.closedFrames++;
                 } else {
-                    if (game.hand.closedFrames >= 3) {
+                    if (game.hand.closedFrames >= 3 && game.balls.length === 0) {
                         launchBall();
                     }
                     game.hand.closedFrames = 0;
