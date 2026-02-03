@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单人热身赛 - DramaBricks</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #1a1a3e 0%, #2d2d6d 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            color: white;
+        }
+
+        /* 返回按钮 */
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            transition: all 0.3s;
+            z-index: 100;
+        }
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateX(-5px);
+        }
+
+        /* 调试控制面板 */
+        .debug-panel {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(22, 33, 62, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 250px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .debug-panel.visible {
+            display: flex;
+        }
+        .debug-section {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 12px;
+        }
+        .debug-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .debug-label {
+            font-size: 12px;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .debug-value {
+            color: #4ade80;
+            font-weight: bold;
+        }
+        .debug-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #444;
+            outline: none;
+            cursor: pointer;
+        }
+        .debug-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4ade80;
+            cursor: pointer;
+        }
+        .debug-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4ade80;
+            cursor: pointer;
+            border: none;
+        }
+        .debug-hint {
+            font-size: 10px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .emoji-btn {
+            width: 36px;
+            height: 36px;
+            border: 2px solid #444;
+            background: #2a2a3e;
+            border-radius: 6px;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .emoji-btn:hover {
+            border-color: #4ade80;
+            background: #3a3a4e;
+            transform: scale(1.1);
+        }
+        .emoji-btn.active {
+            border-color: #4ade80;
+            background: #4ade80;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        /* 调试控制面板 */
+        .debug-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(22, 33, 62, 0.9);
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .debug-toggle label {
+            font-size: 14px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .debug-toggle input[type="checkbox"] {
+            width: 40px;
+            height: 20px;
+            cursor: pointer;
+            appearance: none;
+            background: #444;
+            border-radius: 10px;
+            position: relative;
+            transition: background 0.3s;
+        }
+        .debug-toggle input[type="checkbox"]:checked {
+            background: #4ade80;
+        }
+        .debug-toggle input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            top: 2px;
+            left: 2px;
+            transition: left 0.3s;
+        }
+        .debug-toggle input[type="checkbox"]:checked::before {
+            left: 22px;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            align-items: flex-start;
+        }
+        .main-container.no-debug {
+            justify-content: center;
+        }
+
+        /* 视频面板 */
+        .video-panel {
+            background: rgba(22, 33, 62, 0.8);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transition: opacity 0.3s;
+        }
+        .video-panel.hidden {
+            display: none;
+        }
+        .video-panel h3 {
+            margin-bottom: 10px;
+            color: #56ab2f;
+            font-size: 14px;
+            text-align: center;
+        }
+        #videoCanvas {
+            border-radius: 8px;
+            transform: scaleX(-1);
+            width: 400px;
+            height: 225px;
+        }
+
+        /* 游戏面板 */
+        .game-panel {
+            background: rgba(22, 33, 62, 0.8);
+            border: 3px solid #56ab2f;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(86, 171, 47, 0.3);
+        }
+        .game-panel h2 {
+            margin-bottom: 10px;
+            color: #a8e063;
+            font-size: 20px;
+            text-shadow: 0 0 10px rgba(168, 224, 99, 0.5);
+        }
+
+        /* 顶部信息栏 */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+        .header-item {
+            flex: 0.8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 6px;
+            background: linear-gradient(135deg, rgba(86, 171, 47, 0.2), rgba(168, 224, 99, 0.1));
+            border: 2px solid rgba(168, 224, 99, 0.3);
+            border-radius: 8px;
+            min-height: 50px;
+        }
+        .header-item.avatar {
+            flex: 1.5;
+            padding: 8px;
+            min-height: 80px;
+        }
+        .header-label {
+            font-size: 9px;
+            color: #a8e063;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
+            opacity: 0.8;
+        }
+        .header-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 8px rgba(168, 224, 99, 0.5);
+        }
+        .avatar-circle {
+            width: 70px;
+            height: 70px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            border: 3px solid #fbbf24;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-shadow:
+                0 0 15px rgba(251, 191, 36, 0.6),
+                inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            animation: avatarGlow 2s ease-in-out infinite;
+        }
+        .avatar-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        @keyframes avatarGlow {
+            0%, 100% {
+                box-shadow:
+                    0 0 15px rgba(251, 191, 36, 0.6),
+                    inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            }
+            50% {
+                box-shadow:
+                    0 0 25px rgba(251, 191, 36, 0.8),
+                    inset 0 2px 4px rgba(255, 255, 255, 0.3);
+            }
+        }
+
+        #gameCanvas {
+            border-radius: 8px;
+            background: #0f0f23;
+        }
+
+        /* 信息显示 - 已移除，现在使用顶部栏 */
+
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+        }
+        .status .active { color: #4ade80; }
+
+        /* 游戏结束覆盖层 */
+        .game-over-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 200;
+        }
+        .game-over-overlay.show {
+            display: flex;
+        }
+        .game-over-text {
+            font-size: 48px;
+            font-weight: bold;
+            color: #a8e063;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(168, 224, 99, 0.6);
+        }
+        .game-over-stats {
+            font-size: 24px;
+            margin-bottom: 30px;
+            color: #fff;
+        }
+        .home-btn {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: white;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin-bottom: 15px;
+        }
+        .home-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+        }
+        .restart-btn {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #000;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .restart-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(86, 171, 47, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">← 返回主页</a>
+
+    <div class="debug-toggle">
+        <label for="debugMode">🐛 调试模式</label>
+        <input type="checkbox" id="debugMode">
+    </div>
+
+    <div class="debug-panel" id="debugPanel">
+        <div class="debug-section">
+            <div class="debug-label">
+                🎯 手部灵敏度
+                <span class="debug-value" id="sensitivityValue">4.0</span>
+            </div>
+            <input type="range" class="debug-slider" id="sensitivitySlider" min="1.0" max="6.0" step="0.1" value="4.0">
+            <div class="debug-hint">1.0 = 正常 | 4.0 = 4倍 | 6.0 = 6倍</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="debug-label">
+                🔥 球速增长率
+                <span class="debug-value" id="speedMultiplierValue">1.2</span>
+            </div>
+            <input type="range" class="debug-slider" id="speedMultiplierSlider" min="1.0" max="2.0" step="0.05" value="1.2">
+            <div class="debug-hint">每次碰挡板速度 × N 倍</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="debug-label">
+                ⚡ 最大球速倍数
+                <span class="debug-value" id="maxSpeedValue">1.6</span>
+            </div>
+            <input type="range" class="debug-slider" id="maxSpeedSlider" min="1.0" max="3.0" step="0.1" value="1.6">
+            <div class="debug-hint">球速上限 = 初始速度 × N 倍</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="debug-label">
+                🎭 脸部表情
+                <span class="debug-value" id="faceEmojiValue">😀</span>
+            </div>
+            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <button class="emoji-btn active" data-emoji="😀">😀</button>
+                <button class="emoji-btn" data-emoji="😎">😎</button>
+                <button class="emoji-btn" data-emoji="🤪">🤪</button>
+                <button class="emoji-btn" data-emoji="😜">😜</button>
+                <button class="emoji-btn" data-emoji="🥳">🥳</button>
+                <button class="emoji-btn" data-emoji="😂">😂</button>
+                <button class="emoji-btn" data-emoji="🤯">🤯</button>
+                <button class="emoji-btn" data-emoji="👽">👽</button>
+            </div>
+            <div class="debug-hint">选择表情遮脸</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="debug-label">
+                🧱 新行生成间隔
+                <span class="debug-value" id="newRowIntervalValue">10.0</span>
+            </div>
+            <input type="range" class="debug-slider" id="newRowIntervalSlider" min="3.0" max="30.0" step="0.5" value="10.0">
+            <div class="debug-hint">每隔 N 秒生成新砖块行</div>
+        </div>
+    </div>
+
+    <!-- 背景音乐 -->
+    <audio id="bgMusic" loop>
+        <source src="assets/audio/ai_bgm.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="boardSound"><source src="assets/audio/ai_board.wav" type="audio/wav"></audio>
+    <audio id="bombSound"><source src="assets/audio/ai_bomb.wav" type="audio/wav"></audio>
+
+    <div class="main-container" id="mainContainer">
+        <div class="video-panel hidden" id="videoPanel">
+            <h3>📷 手势识别</h3>
+            <canvas id="videoCanvas" width="640" height="360"></canvas>
+            <div class="status">
+                状态: <span id="status">正在初始化...</span>
+            </div>
+        </div>
+
+        <div class="game-panel">
+            <h2>🎯 单人热身赛</h2>
+
+            <!-- 顶部信息栏 -->
+            <div class="game-header">
+                <div class="header-item">
+                    <div class="header-label">Score</div>
+                    <div class="header-value" id="headerScore">0</div>
+                </div>
+                <div class="header-item avatar">
+                    <div class="avatar-circle">
+                        <img src="assets/images/head1.gif" alt="Avatar">
+                    </div>
+                </div>
+                <div class="header-item">
+                    <div class="header-label">Time</div>
+                    <div class="header-value" id="headerTime">0:00</div>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas" width="400" height="500"></canvas>
+        </div>
+    </div>
+
+    <div id="gameOverOverlay" class="game-over-overlay">
+        <div class="game-over-text">🎉 恭喜通关！</div>
+        <div class="game-over-stats">
+            最终得分: <span id="finalScore">0</span><br>
+            最高Combo: <span id="maxCombo">0</span>
+        </div>
+        <button class="home-btn" onclick="window.location.href='index.html'">返回主页</button>
+        <button class="restart-btn" onclick="restartGame()">再玩一次</button>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js" crossorigin="anonymous"></script>
+
+    <script>
+        // ============ 调试模式控制 ============
+        const debugCheckbox = document.getElementById('debugMode');
+        const videoPanel = document.getElementById('videoPanel');
+        const mainContainer = document.getElementById('mainContainer');
+        const debugPanel = document.getElementById('debugPanel');
+
+        debugCheckbox.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                videoPanel.classList.remove('hidden');
+                mainContainer.classList.remove('no-debug');
+                debugPanel.classList.add('visible');
+            } else {
+                videoPanel.classList.add('hidden');
+                mainContainer.classList.add('no-debug');
+                debugPanel.classList.remove('visible');
+            }
+        });
+
+        // 默认不显示调试面板
+        mainContainer.classList.add('no-debug');
+
+        // ============ 背景音乐控制 ============
+        const bgMusic = document.getElementById('bgMusic');
+        bgMusic.volume = 0.3;
+        bgMusic.playbackRate = 1.0;  // 初始播放速度
+
+        // 更新音乐播放速度（与球速同步）
+        function updateMusicSpeed() {
+            if (game.heatMode && game.balls.length > 0) {
+                const normalBall = game.balls.find(b => b.type === 'normal');
+                if (normalBall) {
+                    const currentSpeed = Math.sqrt(normalBall.vx * normalBall.vx + normalBall.vy * normalBall.vy);
+                    const speedMultiplier = currentSpeed / CONFIG.ballSpeed;
+                    // 音乐速度与球速倍数一致，但限制在合理范围内（0.5-2.0）
+                    bgMusic.playbackRate = Math.min(Math.max(speedMultiplier, 0.5), 2.0);
+                }
+            } else {
+                // 非热力模式，恢复正常速度
+                bgMusic.playbackRate = 1.0;
+            }
+        }
+
+        // 立即尝试播放音乐
+        function tryPlayMusic() {
+            bgMusic.play().then(() => {
+                console.log('音乐开始播放');
+                musicStarted = true;
+            }).catch(err => {
+                console.log('音乐需要用户交互才能播放，等待用户点击...');
+            });
+        }
+
+        // 页面加载后立即尝试
+        tryPlayMusic();
+
+        let musicStarted = false;
+        function tryStartMusic() {
+            if (!musicStarted) {
+                bgMusic.play().then(() => {
+                    console.log('用户交互后音乐开始播放');
+                    musicStarted = true;
+                }).catch(err => {
+                    console.log('音乐播放失败:', err);
+                });
+            }
+        }
+
+        // 监听多种用户交互事件
+        document.addEventListener('click', tryStartMusic);
+        document.addEventListener('keydown', tryStartMusic);
+        document.addEventListener('touchstart', tryStartMusic);
+
+        // ============ 音效控制 ============
+        const boardSound = document.getElementById('boardSound');
+        const bombSound = document.getElementById('bombSound');
+        boardSound.volume = 0.3;
+        bombSound.volume = 0.5;
+
+        function playBoardSound() {
+            const sound = boardSound.cloneNode(true);
+            sound.volume = 0.3;
+            sound.play().catch(err => {});
+        }
+
+        function playBombSound() {
+            const sound = bombSound.cloneNode(true);
+            sound.volume = 0.5;
+            sound.play().catch(err => {});
+        }
+
+        // ============ 游戏配置 ============
+        const CONFIG = {
+            brickRows: 8,
+            brickCols: 8,
+            brickWidth: 43,
+            brickHeight: 18,
+            brickPadding: 4,
+            brickOffsetTop: 50,
+            brickOffsetLeft: 10,
+            paddleWidth: 80,
+            paddleHeight: 12,
+            ballSpeed: 5,
+            ballRadius: 6,
+            sensitivity: 4.0,
+            speedMultiplier: 1.2,  // 热力模式下球速增长率
+            maxSpeedMultiplier: 1.6,  // 最大球速倍数
+            newRowInterval: 10.0,  // 新行生成时间间隔（秒）- 改为10秒（速度减半）
+            deathLine: 17,  // 触底线：第18行（索引17，从0开始）
+            gameTimeLimit: 60  // 游戏时间限制（秒）
+        };
+
+        // ============ 调试控制面板事件 ============
+        const sensitivitySlider = document.getElementById('sensitivitySlider');
+        const sensitivityValue = document.getElementById('sensitivityValue');
+        const speedMultiplierSlider = document.getElementById('speedMultiplierSlider');
+        const speedMultiplierValue = document.getElementById('speedMultiplierValue');
+        const maxSpeedSlider = document.getElementById('maxSpeedSlider');
+        const maxSpeedValue = document.getElementById('maxSpeedValue');
+
+        sensitivitySlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            CONFIG.sensitivity = value;
+            sensitivityValue.textContent = value.toFixed(1);
+        });
+
+        speedMultiplierSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            CONFIG.speedMultiplier = value;
+            speedMultiplierValue.textContent = value.toFixed(2);
+        });
+
+        maxSpeedSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            CONFIG.maxSpeedMultiplier = value;
+            maxSpeedValue.textContent = value.toFixed(1);
+        });
+
+        const newRowIntervalSlider = document.getElementById('newRowIntervalSlider');
+        const newRowIntervalValue = document.getElementById('newRowIntervalValue');
+
+        newRowIntervalSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            CONFIG.newRowInterval = value;
+            newRowIntervalValue.textContent = value.toFixed(1) + 's';
+        });
+
+        // ============ 表情遮脸控制 ============
+        let selectedEmoji = '😀';
+        const faceEmojiValue = document.getElementById('faceEmojiValue');
+        const emojiBtns = document.querySelectorAll('.emoji-btn');
+
+        emojiBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                emojiBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedEmoji = btn.dataset.emoji;
+                faceEmojiValue.textContent = selectedEmoji;
+            });
+        });
+
+        // ============ 游戏状态 ============
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const game = {
+            paddle: {
+                x: canvas.width / 2,
+                y: canvas.height - 40,
+                width: CONFIG.paddleWidth,
+                height: CONFIG.paddleHeight,
+                vx: 0
+            },
+            balls: [],
+            bricks: [],
+            particles: [],  // 砖块碎片粒子
+            score: 0,
+            heat: 0,
+            heatMode: false,
+            combo: 0,
+            maxCombo: 0,
+            comboDisplay: {
+                show: false,
+                value: 0,
+                startTime: 0
+            },
+            hand: {
+                detected: false,
+                isOpen: false,
+                x: 0.5,
+                y: 0.5,
+                closedFrames: 0
+            },
+            startTime: 0,  // 游戏开始时间
+            gameTime: 60,   // 剩余时间（秒）- 倒计时从60开始
+            nextRowTime: 0,  // 下一行砖块生成时间
+            brickTransition: {  // 砖块过渡动画
+                active: false,
+                startTime: 0,
+                duration: 300  // 300ms过渡时间
+            },
+            backgroundFlash: {  // 背景扩散效果
+                active: false,
+                startTime: 0,
+                duration: 200,  // 持续200ms
+                colors: [  // 低饱和度灰调色板（避开砖块/球/挡板颜色）
+                    '#2d4654', // 深蓝灰
+                    '#3d2f4d', // 深紫灰
+                    '#2f4f4f', // 深青灰
+                    '#4a4453', // 深紫褐
+                    '#3b4d4b', // 深绿灰
+                    '#4d3f3f', // 深褐灰
+                    '#2f3e4e', // 深钢蓝
+                    '#3d3f4d'  // 深蓝紫灰
+                ],
+                currentColorIndex: 0,
+                targetColor: '#0f0f23',  // 目标颜色
+                currentBgColor: '#0f0f23'  // 当前背景色（持久状态）
+            }
+        };
+
+        let gameOver = false;
+
+        // ============ 初始化砖块 ============
+        function initBricks() {
+            game.bricks = [];
+            const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#f43f5e'];
+
+            // 计算4x4区域的数量
+            const gridRows = Math.ceil(CONFIG.brickRows / 4);
+            const gridCols = Math.ceil(CONFIG.brickCols / 4);
+
+            // 为每个4x4区域随机选择一个炸弹位置
+            const bombPositions = new Set();
+            for (let gridRow = 0; gridRow < gridRows; gridRow++) {
+                for (let gridCol = 0; gridCol < gridCols; gridCol++) {
+                    // 在当前4x4区域内随机选择一个位置
+                    const localRow = Math.floor(Math.random() * 4);
+                    const localCol = Math.floor(Math.random() * 4);
+                    const actualRow = gridRow * 4 + localRow;
+                    const actualCol = gridCol * 4 + localCol;
+
+                    // 确保不超出边界
+                    if (actualRow < CONFIG.brickRows && actualCol < CONFIG.brickCols) {
+                        bombPositions.add(`${actualRow},${actualCol}`);
+                    }
+                }
+            }
+
+            for (let row = 0; row < CONFIG.brickRows; row++) {
+                for (let col = 0; col < CONFIG.brickCols; col++) {
+                    const isBomb = bombPositions.has(`${row},${col}`);
+
+                    game.bricks.push({
+                        x: CONFIG.brickOffsetLeft + col * (CONFIG.brickWidth + CONFIG.brickPadding),
+                        y: CONFIG.brickOffsetTop + row * (CONFIG.brickHeight + CONFIG.brickPadding),
+                        targetY: CONFIG.brickOffsetTop + row * (CONFIG.brickHeight + CONFIG.brickPadding),
+                        width: CONFIG.brickWidth,
+                        height: CONFIG.brickHeight,
+                        color: colors[row],
+                        alive: true,
+                        breaking: false,
+                        breakStartTime: 0,
+                        type: isBomb ? 'bomb' : 'normal',  // 砖块类型
+                        row: row,
+                        col: col
+                    });
+                }
+            }
+        }
+
+        // 添加新的一行砖块
+        function addNewBrickRow() {
+            const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#f43f5e'];
+
+            // 将所有现有砖块向下移动一行，并更新row索引
+            const rowHeight = CONFIG.brickHeight + CONFIG.brickPadding;
+            for (const brick of game.bricks) {
+                brick.targetY = brick.y + rowHeight;
+                brick.row++;  // 行索引+1
+            }
+
+            // 在顶部生成新的一行
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+            // 随机选择一个位置作为空位
+            const emptyCol = Math.floor(Math.random() * CONFIG.brickCols);
+
+            // 随机选择一个位置作为炸弹（确保不是空位）
+            let bombCol;
+            do {
+                bombCol = Math.floor(Math.random() * CONFIG.brickCols);
+            } while (bombCol === emptyCol);  // 如果和空位重复，重新选择
+
+            for (let col = 0; col < CONFIG.brickCols; col++) {
+                // 跳过空位
+                if (col === emptyCol) {
+                    continue;
+                }
+
+                const isBomb = (col === bombCol);
+
+                game.bricks.push({
+                    x: CONFIG.brickOffsetLeft + col * (CONFIG.brickWidth + CONFIG.brickPadding),
+                    y: CONFIG.brickOffsetTop - rowHeight,  // 从上方开始
+                    targetY: CONFIG.brickOffsetTop,
+                    width: CONFIG.brickWidth,
+                    height: CONFIG.brickHeight,
+                    color: randomColor,
+                    alive: true,
+                    breaking: false,
+                    breakStartTime: 0,
+                    type: isBomb ? 'bomb' : 'normal',
+                    row: 0,  // 新生成的在第0行
+                    col: col
+                });
+            }
+
+            // 启动过渡动画
+            game.brickTransition.active = true;
+            game.brickTransition.startTime = Date.now();
+
+            // 设置下一次生成时间（使用经过的时间）
+            const elapsedTime = Math.floor((Date.now() - game.startTime) / 1000);
+            game.nextRowTime = elapsedTime + CONFIG.newRowInterval;
+        }
+
+        // 生成砖块碎片（马里奥风格）
+        function createBrickParticles(brick) {
+            const particleCount = 8;  // 8个碎片（更多）
+            const centerX = brick.x + brick.width / 2;
+            const centerY = brick.y + brick.height / 2 + 3;  // 稍微下移3px
+            const particleSize = 8;  // 碎片大小：4→8（翻倍）
+
+            for (let i = 0; i < particleCount; i++) {
+                // 生成不同方向的碎片，但减少水平扩散
+                const angle = (Math.PI * 2 / particleCount) * i + Math.random() * 0.3;
+                const speed = 2 + Math.random() * 1.5;  // 水平速度减小：3-5 → 2-3.5
+
+                game.particles.push({
+                    x: centerX,
+                    y: centerY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 6,  // 向上速度增加：-3 → -6（更猛烈）
+                    size: particleSize,
+                    color: brick.color,
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.4,  // 旋转更快：0.3 → 0.4
+                    gravity: 0.4,  // 重力增加：0.3 → 0.4（更快落下）
+                    life: 1.0,  // 生命值（1.0到0）
+                    fadeSpeed: 0.015  // 淡出速度减慢：0.02 → 0.015（持续更久）
+                });
+            }
+        }
+
+        // 计算加分（考虑热力模式和Combo）
+        function calculateScore() {
+            const baseScore = 10;
+            if (game.heatMode && game.combo > 0) {
+                return baseScore + game.combo;  // 基础分 + Combo额外分
+            }
+            return baseScore;  // 仅基础分
+        }
+
+        // 炸弹爆炸：引爆周围一圈砖块
+        function explodeBomb(bombBrick) {
+            const bombRow = bombBrick.row;
+            const bombCol = bombBrick.col;
+
+            // 生成爆炸粒子（更多更炫）
+            createBombExplosionParticles(bombBrick);
+
+            // 遍历周围3x3范围的砖块
+            for (const brick of game.bricks) {
+                if (!brick.alive || brick.breaking) continue;
+                if (brick === bombBrick) continue;
+
+                const rowDiff = Math.abs(brick.row - bombRow);
+                const colDiff = Math.abs(brick.col - bombCol);
+
+                // 周围一圈（3x3范围，不包括自己）
+                if (rowDiff <= 1 && colDiff <= 1) {
+                    // 生成碎片
+                    createBrickParticles(brick);
+
+                    // 标记为破碎
+                    brick.breaking = true;
+                    brick.breakStartTime = Date.now();
+
+                    // 增加分数（使用热力模式加成）
+                    game.score += calculateScore();
+                }
+            }
+
+            // 播放爆炸音效
+            playBombSound();
+        }
+
+        // 生成炸弹爆炸粒子（更炫酷）
+        function createBombExplosionParticles(brick) {
+            const particleCount = 20;  // 更多粒子
+            const centerX = brick.x + brick.width / 2;
+            const centerY = brick.y + brick.height / 2;
+
+            for (let i = 0; i < particleCount; i++) {
+                const angle = (Math.PI * 2 / particleCount) * i + Math.random() * 0.2;
+                const speed = 3 + Math.random() * 3;  // 更快的速度
+
+                game.particles.push({
+                    x: centerX,
+                    y: centerY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed - 4,
+                    size: 6 + Math.random() * 4,  // 随机大小6-10
+                    color: i % 3 === 0 ? '#ff6600' : (i % 3 === 1 ? '#ffaa00' : '#ff0000'),  // 橙红黄交替
+                    rotation: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.5,
+                    gravity: 0.35,
+                    life: 1.0,
+                    fadeSpeed: 0.012  // 持续更久
+                });
+            }
+        }
+
+
+
+        // ============ 手势识别 ============
+        function isHandOpen(landmarks) {
+            const fingerTips = [8, 12, 16, 20];
+            const fingerPIPs = [6, 10, 14, 18];
+            let extendedFingers = 0;
+            for (let i = 0; i < 4; i++) {
+                if (landmarks[fingerTips[i]].y < landmarks[fingerPIPs[i]].y) {
+                    extendedFingers++;
+                }
+            }
+            return extendedFingers >= 3;
+        }
+
+        function getPalmCenter(landmarks) {
+            return {
+                x: (landmarks[0].x + landmarks[9].x) / 2,
+                y: (landmarks[0].y + landmarks[9].y) / 2
+            };
+        }
+
+        // ============ MediaPipe 手势检测 ============
+        const videoCanvas = document.getElementById('videoCanvas');
+        const videoCtx = videoCanvas.getContext('2d');
+
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.5
+        });
+
+        // ============ MediaPipe 人脸检测 ============
+        let faceDetection = null;
+        let detectedFaces = [];
+
+        function initFaceDetection() {
+            try {
+                faceDetection = new FaceDetection({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+                });
+
+                faceDetection.setOptions({
+                    model: 'short',
+                    minDetectionConfidence: 0.5
+                });
+
+                faceDetection.onResults((results) => {
+                    detectedFaces = results.detections || [];
+                });
+
+                console.log('✓ 人脸检测已启用');
+            } catch (error) {
+                console.error('人脸检测初始化失败:', error);
+                faceDetection = null;
+            }
+        }
+
+        setTimeout(initFaceDetection, 1000);
+
+        hands.onResults(onResults);
+
+        function onResults(results) {
+            if (debugCheckbox.checked) {
+                videoCtx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
+                videoCtx.drawImage(results.image, 0, 0, videoCanvas.width, videoCanvas.height);
+
+                // 先绘制手部关键点（在底层）
+                if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                    drawHandLandmarks(results.multiHandLandmarks[0]);
+                }
+
+                // 后绘制表情遮脸（在顶层，覆盖人脸）
+                if (detectedFaces.length > 0) {
+                    detectedFaces.forEach(detection => {
+                        const bbox = detection.boundingBox;
+                        const x = bbox.xCenter * videoCanvas.width;
+                        const y = bbox.yCenter * videoCanvas.height;
+                        const width = bbox.width * videoCanvas.width;
+                        const height = bbox.height * videoCanvas.height;
+
+                        // 绘制表情（放大1.5倍完全遮挡脸部）
+                        const emojiSize = Math.max(width, height) * 1.5;
+                        videoCtx.font = `${emojiSize}px Arial`;
+                        videoCtx.textAlign = 'center';
+                        videoCtx.textBaseline = 'middle';
+                        videoCtx.fillText(selectedEmoji, x, y);
+                    });
+                }
+
+                // 显示检测状态
+                videoCtx.fillStyle = '#4ade80';
+                videoCtx.font = '12px Arial';
+                videoCtx.textAlign = 'left';
+                videoCtx.fillText(`人脸: ${detectedFaces.length}`, 10, 20);
+            }
+
+            // 异步发送到人脸检测
+            if (faceDetection) {
+                faceDetection.send({image: results.image}).catch(err => {
+                    console.log('人脸检测错误（不影响游戏）:', err);
+                });
+            }
+
+            game.hand.detected = false;
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                const palmCenter = getPalmCenter(landmarks);
+                const isOpen = isHandOpen(landmarks);
+
+                game.hand.detected = true;
+                game.hand.isOpen = isOpen;
+                game.hand.x = 1 - palmCenter.x; // 镜像
+
+                // 防抖：握拳→张开发射球
+                if (!isOpen) {
+                    game.hand.closedFrames++;
+                } else {
+                    if (game.hand.closedFrames >= 3) {
+                        launchBall();
+                    }
+                    game.hand.closedFrames = 0;
+                }
+            }
+        }
+
+        function drawHandLandmarks(landmarks) {
+            const connections = [
+                [0,1],[1,2],[2,3],[3,4],
+                [0,5],[5,6],[6,7],[7,8],
+                [0,9],[9,10],[10,11],[11,12],
+                [0,13],[13,14],[14,15],[15,16],
+                [0,17],[17,18],[18,19],[19,20],
+                [5,9],[9,13],[13,17]
+            ];
+
+            videoCtx.strokeStyle = '#56ab2f';
+            videoCtx.lineWidth = 2;
+
+            for (const [i, j] of connections) {
+                videoCtx.beginPath();
+                videoCtx.moveTo(landmarks[i].x * videoCanvas.width, landmarks[i].y * videoCanvas.height);
+                videoCtx.lineTo(landmarks[j].x * videoCanvas.width, landmarks[j].y * videoCanvas.height);
+                videoCtx.stroke();
+            }
+
+            for (const point of landmarks) {
+                videoCtx.beginPath();
+                videoCtx.arc(point.x * videoCanvas.width, point.y * videoCanvas.height, 4, 0, 2 * Math.PI);
+                videoCtx.fillStyle = '#56ab2f';
+                videoCtx.fill();
+            }
+        }
+
+        // ============ 游戏逻辑 ============
+        function launchBall() {
+            if (gameOver) return;
+
+            // 如果是第一次发球，记录开始时间
+            if (game.balls.length === 0 && game.bricks.every(b => b.alive)) {
+                game.startTime = Date.now();
+                game.nextRowTime = CONFIG.newRowInterval;  // 设置第一次新行生成时间
+            }
+
+            // 发射新球时退出热力模式，触发深蓝色扩散
+            if (game.heatMode) {
+                game.backgroundFlash.active = true;
+                game.backgroundFlash.startTime = Date.now();
+                game.backgroundFlash.targetColor = '#0f0f23';  // 回到深蓝色
+            }
+
+            game.heat = 0;
+            game.heatMode = false;
+            game.combo = 0;
+            game.balls = [];
+
+            const speed = CONFIG.ballSpeed;
+            game.balls.push({
+                x: game.paddle.x,
+                y: game.paddle.y - 15,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -speed,
+                type: 'normal',
+                trail: []  // 拖尾位置记录
+            });
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            // 更新游戏时间（倒计时）
+            if (game.startTime > 0) {
+                const elapsedTime = Math.floor((Date.now() - game.startTime) / 1000);
+                game.gameTime = Math.max(0, CONFIG.gameTimeLimit - elapsedTime);  // 倒计时
+
+                // 检查时间是否用完
+                if (game.gameTime <= 0 && !gameOver) {
+                    gameOver = true;
+                    showGameOver('时间到！游戏结束！');
+                }
+
+                // 检查是否需要生成新行（使用经过的时间）
+                if (elapsedTime >= game.nextRowTime) {
+                    addNewBrickRow();
+                }
+            }
+
+            // 更新音乐播放速度（与球速同步）
+            updateMusicSpeed();
+
+            // 更新砖块过渡动画
+            if (game.brickTransition.active) {
+                const elapsed = Date.now() - game.brickTransition.startTime;
+                const progress = Math.min(elapsed / game.brickTransition.duration, 1);
+
+                // 使用缓动函数（easeOutCubic）
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+                for (const brick of game.bricks) {
+                    if (brick.targetY !== undefined) {
+                        const startY = brick.targetY - (CONFIG.brickHeight + CONFIG.brickPadding);
+                        brick.y = startY + (brick.targetY - startY) * easeProgress;
+                    }
+                }
+
+                if (progress >= 1) {
+                    game.brickTransition.active = false;
+                    // 过渡结束，确保所有砖块到达目标位置
+                    for (const brick of game.bricks) {
+                        if (brick.targetY !== undefined) {
+                            brick.y = brick.targetY;
+                        }
+                    }
+                }
+            }
+
+            // 更新砖块破碎状态
+            const now = Date.now();
+            for (const brick of game.bricks) {
+                if (brick.breaking && now - brick.breakStartTime > 60) {
+                    brick.alive = false;
+                }
+            }
+
+            // 更新粒子（砖块碎片）
+            for (let i = game.particles.length - 1; i >= 0; i--) {
+                const p = game.particles[i];
+
+                // 更新位置
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // 应用重力
+                p.vy += p.gravity;
+
+                // 更新旋转
+                p.rotation += p.rotationSpeed;
+
+                // 淡出
+                p.life -= p.fadeSpeed;
+
+                // 移除消失的粒子
+                if (p.life <= 0 || p.y > canvas.height) {
+                    game.particles.splice(i, 1);
+                }
+            }
+
+            // 手控制挡板（只控制移动，不控制旋转）
+            if (game.hand.detected) {
+                const centerX = canvas.width / 2;
+                const handOffset = game.hand.x - 0.5;
+                const targetX = centerX + handOffset * CONFIG.sensitivity * canvas.width;
+
+                const springStrength = 0.15;
+                const damping = 0.8;
+
+                const acceleration = (targetX - game.paddle.x) * springStrength;
+                game.paddle.vx += acceleration;
+                game.paddle.vx *= damping;
+                game.paddle.x += game.paddle.vx;
+
+                game.paddle.x = Math.max(game.paddle.width/2,
+                                Math.min(canvas.width - game.paddle.width/2, game.paddle.x));
+            }
+
+            // 更新球
+            for (let i = game.balls.length - 1; i >= 0; i--) {
+                const ball = game.balls[i];
+
+                // 记录球的轨迹（用于拖尾）
+                if (!ball.trail) ball.trail = [];
+                ball.trail.push({ x: ball.x, y: ball.y });
+                // 保持拖尾长度在8-12个点之间（根据速度动态调整）
+                const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+                const trailLength = Math.floor(8 + (speed / CONFIG.ballSpeed) * 4);
+                if (ball.trail.length > trailLength) {
+                    ball.trail.shift();
+                }
+
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                // 墙壁碰撞
+                if (ball.x - CONFIG.ballRadius < 0 || ball.x + CONFIG.ballRadius > canvas.width) {
+                    ball.vx = -ball.vx;
+                    ball.x = Math.max(CONFIG.ballRadius, Math.min(canvas.width - CONFIG.ballRadius, ball.x));
+                }
+                if (ball.y - CONFIG.ballRadius < 0) {
+                    ball.vy = -ball.vy;
+                    ball.y = CONFIG.ballRadius;
+                }
+
+                // 球落出底部
+                if (ball.y > canvas.height + 30) {
+                    // 退出热力模式时，触发深蓝色扩散
+                    if (game.heatMode) {
+                        game.backgroundFlash.active = true;
+                        game.backgroundFlash.startTime = Date.now();
+                        game.backgroundFlash.targetColor = '#0f0f23';  // 回到深蓝色
+                    }
+
+                    game.heat = 0;
+                    game.heatMode = false;
+                    game.combo = 0;
+                    game.balls.splice(i, 1);
+                    continue;
+                }
+
+                // 挡板碰撞
+                if (checkPaddleCollision(ball)) {
+                    let speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+                    const hitPos = (ball.x - game.paddle.x) / (game.paddle.width / 2);
+                    const bounceAngle = -Math.PI/2 + hitPos * 0.5;
+
+                    // 热力模式下速度累乘
+                    if (game.heatMode) {
+                        speed *= CONFIG.speedMultiplier;
+                        const maxSpeed = CONFIG.ballSpeed * CONFIG.maxSpeedMultiplier;
+                        if (speed > maxSpeed) speed = maxSpeed;
+                    }
+
+                    ball.vx = Math.cos(bounceAngle) * speed;
+                    ball.vy = Math.sin(bounceAngle) * speed;
+                    if (ball.vy > 0) ball.vy = -ball.vy;
+
+                    ball.y = game.paddle.y - CONFIG.ballRadius - game.paddle.height/2 - 1;
+
+                    playBoardSound();
+
+                    // 增加combo和热力值
+                    game.combo++;
+                    if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+
+                    if (game.combo > 3) {
+                        game.comboDisplay.show = true;
+                        game.comboDisplay.value = game.combo;
+                        game.comboDisplay.startTime = Date.now();
+
+                        // 热力模式下，Combo增加时触发背景切换
+                        if (game.heatMode) {
+                            game.backgroundFlash.active = true;
+                            game.backgroundFlash.startTime = Date.now();
+                            // 切换到下一个颜色
+                            game.backgroundFlash.currentColorIndex =
+                                (game.backgroundFlash.currentColorIndex + 1) % game.backgroundFlash.colors.length;
+                            game.backgroundFlash.targetColor = game.backgroundFlash.colors[game.backgroundFlash.currentColorIndex];
+                        }
+                    }
+
+                    if (game.heat < 3) {
+                        game.heat++;
+                        if (game.heat === 3) {
+                            game.heatMode = true;
+                        }
+                    }
+                }
+
+                // 砖块碰撞
+                for (const brick of game.bricks) {
+                    if (brick.alive && !brick.breaking && checkBrickCollision(ball, brick)) {
+                        // 检查是否是炸弹砖块
+                        if (brick.type === 'bomb') {
+                            // 炸弹爆炸：引爆周围砖块
+                            explodeBomb(brick);
+                        } else {
+                            // 普通砖块：生成碎片粒子
+                            createBrickParticles(brick);
+                            playBombSound();
+                        }
+
+                        brick.breaking = true;
+                        brick.breakStartTime = Date.now();
+                        ball.vy = -ball.vy;
+
+                        // 增加分数（使用热力模式加成）
+                        game.score += calculateScore();
+                        break;
+                    }
+                }
+            }
+
+            // 检查砖块触底（游戏失败条件）
+            // 底线位置：第18行（第17行索引，从0开始）
+            const deathLineY = CONFIG.brickOffsetTop + CONFIG.deathLine * (CONFIG.brickHeight + CONFIG.brickPadding);
+            for (const brick of game.bricks) {
+                if (brick.alive && brick.y >= deathLineY) {
+                    if (!gameOver) {
+                        gameOver = true;
+                        showGameOver('砖块触底！游戏结束！');
+                    }
+                    break;
+                }
+            }
+
+            // 检查胜利
+            const aliveBricks = game.bricks.filter(b => b.alive).length;
+            if (aliveBricks === 0 && !gameOver) {
+                gameOver = true;
+                showGameOver('恭喜胜利！');
+            }
+
+            updateUI();
+        }
+
+        function checkPaddleCollision(ball) {
+            const paddleLeft = game.paddle.x - game.paddle.width / 2;
+            const paddleRight = game.paddle.x + game.paddle.width / 2;
+            const paddleTop = game.paddle.y - game.paddle.height / 2;
+            const paddleBottom = game.paddle.y + game.paddle.height / 2;
+
+            return ball.x + CONFIG.ballRadius > paddleLeft &&
+                   ball.x - CONFIG.ballRadius < paddleRight &&
+                   ball.y + CONFIG.ballRadius > paddleTop &&
+                   ball.y - CONFIG.ballRadius < paddleBottom &&
+                   ball.vy > 0;
+        }
+
+        function checkBrickCollision(ball, brick) {
+            return ball.x + CONFIG.ballRadius > brick.x &&
+                   ball.x - CONFIG.ballRadius < brick.x + brick.width &&
+                   ball.y + CONFIG.ballRadius > brick.y &&
+                   ball.y - CONFIG.ballRadius < brick.y + brick.height;
+        }
+
+        function renderGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制背景（持久色+扩散动画）
+            if (game.backgroundFlash.active) {
+                const elapsed = Date.now() - game.backgroundFlash.startTime;
+                const progress = elapsed / game.backgroundFlash.duration;
+
+                if (progress < 1) {
+                    // 先绘制当前背景色
+                    ctx.fillStyle = game.backgroundFlash.currentBgColor;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // 创建从中心扩散的圆形遮罩效果
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const maxRadius = Math.sqrt(centerX * centerX + centerY * centerY);
+
+                    // 扩散半径：更大范围，确保完全覆盖
+                    const radius = progress * maxRadius * 2.5;
+
+                    // 透明度：保持不透明，让颜色完全覆盖
+                    const alpha = 1;
+
+                    // 绘制目标颜色的扁平色圆形
+                    ctx.save();
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = game.backgroundFlash.targetColor;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                } else {
+                    // 扩散完成，更新当前背景色为目标色
+                    game.backgroundFlash.currentBgColor = game.backgroundFlash.targetColor;
+                    game.backgroundFlash.active = false;
+
+                    // 绘制最终背景色
+                    ctx.fillStyle = game.backgroundFlash.currentBgColor;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+            } else {
+                // 绘制当前持久背景色
+                ctx.fillStyle = game.backgroundFlash.currentBgColor;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // 绘制若隐若现的底线（触底警示线）
+            const deathLineY = CONFIG.brickOffsetTop + CONFIG.deathLine * (CONFIG.brickHeight + CONFIG.brickPadding);
+            const time = Date.now() / 1000;
+            const breatheAlpha = 0.15 + Math.sin(time * 2) * 0.1;  // 0.05-0.25之间呼吸
+
+            // 绘制虚线
+            ctx.strokeStyle = `rgba(255, 80, 80, ${breatheAlpha})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([10, 5]);  // 虚线样式：10px实线，5px空白
+            ctx.beginPath();
+            ctx.moveTo(0, deathLineY);
+            ctx.lineTo(canvas.width, deathLineY);
+            ctx.stroke();
+            ctx.setLineDash([]);  // 重置为实线
+
+            // 添加微弱的光晕效果
+            ctx.shadowColor = `rgba(255, 80, 80, ${breatheAlpha * 0.5})`;
+            ctx.shadowBlur = 8;
+            ctx.strokeStyle = `rgba(255, 80, 80, ${breatheAlpha * 0.3})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, deathLineY);
+            ctx.lineTo(canvas.width, deathLineY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // 绘制砖块
+            for (const brick of game.bricks) {
+                if (brick.alive) {
+                    if (brick.breaking) {
+                        const elapsed = Date.now() - brick.breakStartTime;
+                        const progress = elapsed / 60;
+
+                        ctx.save();
+                        const scale = 1 - progress * 0.3;
+                        const alpha = 1 - progress;
+                        const offsetX = brick.x + brick.width / 2;
+                        const offsetY = brick.y + brick.height / 2;
+
+                        ctx.translate(offsetX, offsetY);
+                        ctx.scale(scale, scale);
+                        ctx.globalAlpha = alpha;
+
+                        ctx.fillStyle = brick.color;
+                        ctx.shadowColor = brick.color;
+                        ctx.shadowBlur = 8;
+                        ctx.fillRect(-brick.width/2, -brick.height/2, brick.width, brick.height);
+                        ctx.shadowBlur = 0;
+
+                        ctx.restore();
+                    } else {
+                        // 炸弹砖块：霓虹色相变化（快速）
+                        if (brick.type === 'bomb') {
+                            const time = Date.now() / 1000;
+                            const hue = (time * 240) % 360;  // 色相每秒旋转240度（速度翻倍）
+                            const saturation = 80 + Math.sin(time * 6) * 20;  // 饱和度60-100%变化（速度翻倍）
+                            const lightness = 50 + Math.sin(time * 8) * 10;  // 亮度40-60%变化（速度翻倍）
+
+                            ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                            ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                            ctx.shadowBlur = 15;
+                            ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                            ctx.shadowBlur = 0;
+
+                            // 添加额外的霓虹边框效果
+                            ctx.strokeStyle = `hsl(${hue}, 100%, 70%)`;
+                            ctx.lineWidth = 2;
+                            ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+                            ctx.shadowBlur = 8;
+                            ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
+                            ctx.shadowBlur = 0;
+                        } else {
+                            // 普通砖块
+                            ctx.fillStyle = brick.color;
+                            ctx.shadowColor = brick.color;
+                            ctx.shadowBlur = 6;
+                            ctx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                            ctx.shadowBlur = 0;
+
+                            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                            ctx.fillRect(brick.x, brick.y, brick.width, 2);
+                        }
+                    }
+                }
+            }
+
+            // 绘制砖块碎片粒子
+            for (const p of game.particles) {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation);
+                ctx.globalAlpha = p.life;
+
+                // 绘制小方块碎片
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+
+                // 添加高光
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.fillRect(-p.size / 2, -p.size / 2, p.size, 1);
+
+                ctx.restore();
+            }
+
+            // 绘制挡板（水平，无旋转）
+            ctx.save();
+            ctx.translate(game.paddle.x, game.paddle.y);
+
+            const gradient = ctx.createLinearGradient(0, -game.paddle.height/2, 0, game.paddle.height/2);
+            gradient.addColorStop(0, '#56ab2f');
+            gradient.addColorStop(1, 'rgba(86, 171, 47, 0.7)');
+            ctx.fillStyle = gradient;
+            ctx.shadowColor = '#56ab2f';
+            ctx.shadowBlur = 12;
+            ctx.fillRect(-game.paddle.width/2, -game.paddle.height/2, game.paddle.width, game.paddle.height);
+            ctx.shadowBlur = 0;
+
+            ctx.restore();
+
+            // 绘制球（带拖尾效果）
+            for (const ball of game.balls) {
+                // 先绘制拖尾
+                if (ball.trail && ball.trail.length > 1) {
+                    for (let i = 0; i < ball.trail.length; i++) {
+                        const progress = i / ball.trail.length;
+                        const alpha = progress * 0.6; // 从0到0.6的透明度
+                        const size = CONFIG.ballRadius * (0.3 + progress * 0.7); // 从30%到100%的大小
+
+                        ctx.beginPath();
+                        ctx.arc(ball.trail[i].x, ball.trail[i].y, size, 0, Math.PI * 2);
+                        ctx.fillStyle = `rgba(251, 191, 36, ${alpha})`; // 金色 #fbbf24
+                        ctx.shadowColor = `rgba(251, 191, 36, ${alpha * 0.5})`;
+                        ctx.shadowBlur = 8;
+                        ctx.fill();
+                    }
+                    ctx.shadowBlur = 0;
+                }
+
+                // 再绘制球本体（在最上层）
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, CONFIG.ballRadius, 0, Math.PI * 2);
+                ctx.fillStyle = '#fbbf24';
+                ctx.shadowColor = '#fbbf24';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // 绘制热力条
+            const barWidth = canvas.width - 20;
+            const barHeight = 8;
+            const barX = 10;
+            const barY = 30;
+
+            let speedMultiplier = 1.0;
+            const normalBall = game.balls.find(b => b.type === 'normal');
+            if (normalBall) {
+                const currentSpeed = Math.sqrt(normalBall.vx * normalBall.vx + normalBall.vy * normalBall.vy);
+                speedMultiplier = currentSpeed / CONFIG.ballSpeed;
+            }
+
+            const textColor = game.heatMode ? '#ff4444' : '#ffffff';
+            ctx.fillStyle = textColor;
+            ctx.font = '12px Segoe UI';
+            ctx.textAlign = 'left';
+            ctx.fillText('热力值', barX, barY - 5);
+
+            ctx.textAlign = 'center';
+            ctx.fillText('x' + speedMultiplier.toFixed(1), canvas.width / 2, barY - 5);
+
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+            ctx.fillRect(barX, barY, barWidth, barHeight);
+
+            const heatProgress = game.heat / 3;
+            const heatWidth = barWidth * heatProgress;
+
+            if (game.heatMode) {
+                const pulse = Math.sin(Date.now() / 100) * 0.3 + 0.7;
+                ctx.fillStyle = `rgba(255, 50, 50, ${pulse})`;
+            } else {
+                ctx.fillStyle = '#ff4444';
+            }
+
+            ctx.fillRect(barX, barY, heatWidth, barHeight);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < 3; i++) {
+                const x = barX + (barWidth / 3) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, barY);
+                ctx.lineTo(x, barY + barHeight);
+                ctx.stroke();
+            }
+
+            // 绘制Combo提示
+            if (game.comboDisplay.show) {
+                const elapsed = Date.now() - game.comboDisplay.startTime;
+                const duration = 400;
+
+                if (elapsed < duration) {
+                    const progress = elapsed / duration;
+                    const alpha = Math.sin(progress * Math.PI);
+                    let scale;
+                    if (progress < 0.3) {
+                        scale = 0.5 + (progress / 0.3) * 0.7;
+                    } else {
+                        scale = 1.2 - ((progress - 0.3) / 0.7) * 0.2;
+                    }
+                    const offsetY = -20 * Math.sin(progress * Math.PI);
+
+                    ctx.save();
+                    ctx.translate(canvas.width / 2, canvas.height / 2 + offsetY);
+                    ctx.scale(scale, scale);
+
+                    ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+                    ctx.font = 'bold 36px Segoe UI';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = `rgba(255, 215, 0, ${alpha * 0.8})`;
+                    ctx.shadowBlur = 20;
+
+                    ctx.fillText(`${game.comboDisplay.value} x Combo`, 0, 0);
+
+                    ctx.shadowBlur = 0;
+                    ctx.restore();
+                } else {
+                    game.comboDisplay.show = false;
+                }
+            }
+
+            // 提示文字
+            if (game.balls.length === 0 && !gameOver) {
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.font = '16px Segoe UI';
+                ctx.textAlign = 'center';
+                ctx.fillText('握拳→张开发球', canvas.width/2, canvas.height/2);
+            }
+        }
+
+        function updateUI() {
+            // 更新顶部栏
+            document.getElementById('headerScore').textContent = game.score;
+
+            // 格式化时间显示（分:秒）
+            const minutes = Math.floor(game.gameTime / 60);
+            const seconds = game.gameTime % 60;
+            document.getElementById('headerTime').textContent =
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function showGameOver(message = '游戏结束') {
+            document.getElementById('finalScore').textContent = game.score;
+            document.getElementById('maxCombo').textContent = game.maxCombo;
+
+            // 更新游戏结束消息
+            const gameOverTitle = document.querySelector('#gameOverOverlay h2');
+            if (gameOverTitle) {
+                gameOverTitle.textContent = message;
+            }
+
+            document.getElementById('gameOverOverlay').classList.add('show');
+        }
+
+        function restartGame() {
+            gameOver = false;
+            game.balls = [];
+            game.particles = [];  // 清空粒子
+            game.score = 0;
+            game.heat = 0;
+            game.heatMode = false;
+            game.combo = 0;
+            game.maxCombo = 0;
+            game.startTime = 0;
+            game.gameTime = 60;  // 重置倒计时为60秒
+            game.nextRowTime = 0;  // 重置新行时间
+            game.brickTransition.active = false;  // 重置过渡动画
+            game.backgroundFlash.currentBgColor = '#0f0f23';  // 重置背景色
+            initBricks();
+            document.getElementById('gameOverOverlay').classList.remove('show');
+        }
+
+        function gameLoop() {
+            updateGame();
+            renderGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============ 初始化 ============
+        async function init() {
+            const statusEl = document.getElementById('status');
+
+            initBricks();
+
+            try {
+                statusEl.innerHTML = '<span style="color: #888">正在请求摄像头权限...</span>';
+
+                const video = document.createElement('video');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 }
+                });
+                video.srcObject = stream;
+                await video.play();
+
+                statusEl.innerHTML = '<span style="color: #888">正在加载手势识别模型...</span>';
+
+                const camera = new Camera(video, {
+                    onFrame: async () => {
+                        await hands.send({ image: video });
+                    },
+                    width: 640,
+                    height: 480
+                });
+
+                await camera.start();
+
+                statusEl.innerHTML = '<span class="active">✓ 运行中</span>';
+
+                gameLoop();
+
+            } catch (error) {
+                console.error('初始化失败:', error);
+                statusEl.innerHTML = `<span style="color: #ef4444">错误: ${error.message}</span>`;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
