@@ -1163,7 +1163,8 @@
         hands.onResults(onResults);
 
         function onResults(results) {
-            if (debugCheckbox.checked) {
+            // 镜头模式开启时绘制摄像头画面
+            if (cameraCheckbox.checked) {
                 videoCtx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
                 videoCtx.drawImage(results.image, 0, 0, videoCanvas.width, videoCanvas.height);
 
