@@ -522,6 +522,10 @@
     <a href="index.html" class="back-btn">← 返回主页</a>
 
     <div class="toggle-container">
+        <div class="debug-toggle">
+            <label for="rotationMode">🌀 旋转模式</label>
+            <input type="checkbox" id="rotationMode" checked>
+        </div>
         <div class="debug-toggle camera-toggle">
             <label for="cameraMode">📷 镜头模式</label>
             <input type="checkbox" id="cameraMode">
@@ -548,6 +552,15 @@
             </div>
             <input type="range" class="debug-slider" id="sensitivitySlider" min="4.0" max="12.0" step="0.1" value="8.0">
             <div class="debug-hint">4.0 = 4倍 | 8.0 = 8倍 | 12.0 = 12倍</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="debug-label">
+                ✋ 手部移动范围
+                <span class="debug-value" id="handMovementRangeValue">30%</span>
+            </div>
+            <input type="range" class="debug-slider" id="handMovementRangeSlider" min="0.1" max="1.0" step="0.05" value="0.3">
+            <div class="debug-hint">0.3=30%画面 | 0.5=50%画面 | 1.0=100%画面</div>
         </div>
 
         <div class="debug-section">
@@ -677,11 +690,19 @@
 
     <script>
         // ============ 模式控制 ============
+        const rotationCheckbox = document.getElementById('rotationMode');
         const cameraCheckbox = document.getElementById('cameraMode');
         const debugCheckbox = document.getElementById('debugMode');
         const videoPanel = document.getElementById('videoPanel');
         const mainContainer = document.getElementById('mainContainer');
         const debugPanel = document.getElementById('debugPanel');
+
+        // 挡板旋转是否由双手控制
+        let rotationEnabled = true;
+
+        rotationCheckbox.addEventListener('change', (e) => {
+            rotationEnabled = e.target.checked;
+        });
 
         // 镜头模式开关 - 控制摄像头窗口
         cameraCheckbox.addEventListener('change', (e) => {
@@ -822,6 +843,7 @@
             ballSpeed: 5,
             ballRadius: 6,
             sensitivity: 8.0,
+            handMovementRange: 0.3,  // 手部移动范围比例（0.0-1.0），例如0.3表示只需移动画面30%宽度即可控制挡板全范围
             speedMultiplier: 1.2,  // 热力模式下球速增长率
             maxSpeedMultiplier: 1.6,  // 最大球速倍数
             newRowInterval: 10.0,  // 新行生成时间间隔（秒）- 改为10秒（速度减半）
@@ -836,11 +858,19 @@
         const speedMultiplierValue = document.getElementById('speedMultiplierValue');
         const maxSpeedSlider = document.getElementById('maxSpeedSlider');
         const maxSpeedValue = document.getElementById('maxSpeedValue');
+        const handMovementRangeSlider = document.getElementById('handMovementRangeSlider');
+        const handMovementRangeValue = document.getElementById('handMovementRangeValue');
 
         sensitivitySlider.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             CONFIG.sensitivity = value;
             sensitivityValue.textContent = value.toFixed(1);
+        });
+
+        handMovementRangeSlider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            CONFIG.handMovementRange = value;
+            handMovementRangeValue.textContent = Math.round(value * 100) + '%';
         });
 
         speedMultiplierSlider.addEventListener('input', (e) => {
@@ -1488,18 +1518,27 @@
                 const rightY = game.rightHand.y;
 
                 // 计算双手连线角度（用于挡板旋转）
-                const dx = rightX - leftX;
-                const dy = rightY - leftY;
-                let angle = Math.atan2(dy, dx);
+                if (rotationEnabled) {
+                    const dx = rightX - leftX;
+                    const dy = rightY - leftY;
+                    let angle = Math.atan2(dy, dx);
 
-                // 限制角度范围 (-60° 到 60°)
-                const maxAngle = Math.PI / 3;
-                angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
-                game.paddle.angle = angle;
+                    // 限制角度范围 (-60° 到 60°)
+                    const maxAngle = Math.PI / 3;
+                    angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
+                    game.paddle.angle = angle;
+                } else {
+                    // 旋转模式关闭时，角度缓慢回正
+                    game.paddle.angle *= 0.9;
+                }
 
-                // 计算双手中心点（用于挡板位置）
+                // 计算双手中心点（用于挡板位置），应用手部移动范围映射
                 const centerX = (leftX + rightX) / 2;
-                const targetX = centerX * canvas.width;
+                // 将手部坐标从 [0.5-range/2, 0.5+range/2] 映射到 [0, 1]，再映射到挡板位置
+                const offset = centerX - 0.5;  // 相对于中心的偏移 [-0.5, 0.5]
+                const scaledOffset = offset / CONFIG.handMovementRange;  // 缩放偏移
+                const normalizedX = Math.max(0, Math.min(1, scaledOffset + 0.5));  // 限制在 [0, 1]
+                const targetX = normalizedX * canvas.width;
 
                 // 平滑移动
                 const springStrength = 0.15;
@@ -1513,10 +1552,14 @@
                 game.paddle.x = Math.max(game.paddle.width/2,
                                 Math.min(canvas.width - game.paddle.width/2, game.paddle.x));
             } else if (game.leftHand.detected || game.rightHand.detected) {
-                // 单手时只控制位置，不旋转
+                // 单手时只控制位置，不旋转，同样应用手部移动范围映射
                 const hand = game.leftHand.detected ? game.leftHand : game.rightHand;
                 const handX = 1 - hand.x; // 镜像
-                const targetX = handX * canvas.width;
+                // 将手部坐标从 [0.5-range/2, 0.5+range/2] 映射到 [0, 1]，再映射到挡板位置
+                const offset = handX - 0.5;  // 相对于中心的偏移 [-0.5, 0.5]
+                const scaledOffset = offset / CONFIG.handMovementRange;  // 缩放偏移
+                const normalizedX = Math.max(0, Math.min(1, scaledOffset + 0.5));  // 限制在 [0, 1]
+                const targetX = normalizedX * canvas.width;
 
                 const springStrength = 0.15;
                 const damping = 0.8;
@@ -2099,11 +2142,26 @@
             game.nextRowTime = 0;  // 重置新行时间
             game.brickTransition.active = false;  // 重置过渡动画
             game.backgroundFlash.currentBgColor = '#0f0f23';  // 重置背景色
+            game.backgroundFlash.active = false;  // 防止上一局闪屏状态残留
+            game.comboDisplay.show = false;  // 防止上一局 Combo 显示残留
+            game.comboDisplay.value = 0;
+            game.comboDisplay.startTime = 0;
+            // 挡板复位到中央，避免上一局位置/速度残留
+            game.paddle.x = canvas.width / 2;
+            game.paddle.y = canvas.height - 40;
+            game.paddle.vx = 0;
+            game.paddle.angle = 0;
+            lastFrameTime = 0;  // 重置帧时间，避免重启后首帧 delta 过大导致卡顿
             initBricks();
             document.getElementById('gameOverOverlay').classList.remove('show');
         }
 
         function gameLoop(currentTime) {
+            // 游戏已结束时只维持 rAF，不更新/渲染，避免无谓消耗（减轻多局后卡顿）
+            if (gameOver) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
             // 计算 delta time
             if (lastFrameTime === 0) {
                 lastFrameTime = currentTime;
