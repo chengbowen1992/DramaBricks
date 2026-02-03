@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>单人热身赛 - DramaBricks</title>
     <style>
         * {
@@ -10,15 +10,22 @@
             padding: 0;
             box-sizing: border-box;
         }
+        html {
+            height: 100%;
+            overflow: hidden;
+        }
         body {
             background: linear-gradient(135deg, #1a1a3e 0%, #2d2d6d 100%);
+            background-attachment: fixed;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            min-height: 100%;
+            height: 100%;
             font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
             color: white;
+            overflow: hidden;
         }
 
         /* 返回按钮 */
@@ -187,6 +194,8 @@
             gap: 20px;
             padding: 20px;
             align-items: flex-start;
+            transform-origin: center center;
+            transition: transform 0.3s ease;
         }
         .main-container.no-debug {
             justify-content: center;
@@ -382,6 +391,52 @@
             transform: translateY(-3px);
             box-shadow: 0 8px 20px rgba(86, 171, 47, 0.5);
         }
+
+        /* 移动设备响应式适配 */
+        @media screen and (max-width: 768px) {
+            .back-btn {
+                padding: 8px 16px;
+                font-size: 14px;
+                top: 10px;
+                left: 10px;
+            }
+            .debug-toggle {
+                padding: 8px 12px;
+                top: 10px;
+                right: 10px;
+            }
+            .debug-toggle label {
+                font-size: 12px;
+            }
+            .debug-panel {
+                top: 60px;
+                right: 10px;
+                min-width: 200px;
+                max-height: 50vh;
+                padding: 10px;
+            }
+            .game-over-text {
+                font-size: 32px;
+            }
+            .game-over-stats {
+                font-size: 18px;
+            }
+            .home-btn, .restart-btn {
+                padding: 12px 30px;
+                font-size: 16px;
+            }
+        }
+
+        @media screen and (max-height: 600px) {
+            .game-over-text {
+                font-size: 28px;
+                margin-bottom: 10px;
+            }
+            .game-over-stats {
+                font-size: 16px;
+                margin-bottom: 15px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -393,6 +448,14 @@
     </div>
 
     <div class="debug-panel" id="debugPanel">
+        <div class="debug-section">
+            <div class="debug-label">
+                📊 帧率 (FPS)
+                <span class="debug-value" id="fpsValue">--</span>
+            </div>
+            <div class="debug-hint">目标帧率: 60 FPS</div>
+        </div>
+
         <div class="debug-section">
             <div class="debug-label">
                 🎯 手部灵敏度
@@ -525,6 +588,58 @@
 
         // 默认不显示调试面板
         mainContainer.classList.add('no-debug');
+
+        // ============ 自动缩放适配 ============
+        function adjustScale() {
+            const container = document.getElementById('mainContainer');
+            if (!container) return;
+
+            // 游戏面板的原始尺寸（非调试模式下只有游戏面板）
+            const gameWidth = 430;  // 游戏面板宽度 + padding
+            const gameHeight = 620; // 游戏面板高度 + padding
+
+            // 调试模式下需要更多宽度（视频面板 + 游戏面板）
+            const debugWidth = 880;
+            const debugHeight = 620;
+
+            // 获取可用视口尺寸（减去一些边距）
+            const viewportWidth = window.innerWidth - 40;
+            const viewportHeight = window.innerHeight - 100; // 留出顶部按钮空间
+
+            // 根据当前模式选择目标尺寸
+            const isDebugMode = debugCheckbox.checked;
+            const targetWidth = isDebugMode ? debugWidth : gameWidth;
+            const targetHeight = isDebugMode ? debugHeight : gameHeight;
+
+            // 计算缩放比例（取宽高中较小的比例，确保完全显示）
+            const scaleX = viewportWidth / targetWidth;
+            const scaleY = viewportHeight / targetHeight;
+            let scale = Math.min(scaleX, scaleY, 1); // 最大不超过1（不放大）
+
+            // 最小缩放限制，防止过小
+            scale = Math.max(scale, 0.3);
+
+            // 应用缩放
+            container.style.transform = `scale(${scale})`;
+
+            console.log(`屏幕适配: ${window.innerWidth}x${window.innerHeight}, 缩放比例: ${scale.toFixed(2)}`);
+        }
+
+        // 监听窗口大小变化
+        window.addEventListener('resize', adjustScale);
+
+        // 监听屏幕方向变化（移动设备）
+        window.addEventListener('orientationchange', () => {
+            setTimeout(adjustScale, 100); // 延迟执行，等待方向变化完成
+        });
+
+        // 调试模式切换时重新计算缩放
+        debugCheckbox.addEventListener('change', () => {
+            setTimeout(adjustScale, 50);
+        });
+
+        // 初始调用
+        setTimeout(adjustScale, 100);
 
         // ============ 背景音乐控制 ============
         const bgMusic = document.getElementById('bgMusic');
@@ -726,6 +841,17 @@
         };
 
         let gameOver = false;
+
+        // ============ 帧率控制（Delta Time） ============
+        let lastFrameTime = 0;
+        let deltaTime = 0;
+        const TARGET_FPS = 60;
+        const TARGET_FRAME_TIME = 1000 / TARGET_FPS; // 16.67ms
+
+        // FPS 计算
+        let frameCount = 0;
+        let fpsLastTime = 0;
+        let currentFPS = 0;
 
         // ============ 初始化砖块 ============
         function initBricks() {
@@ -1138,8 +1264,11 @@
             });
         }
 
-        function updateGame() {
+        function updateGame(dt = 1) {
             if (gameOver) return;
+
+            // 确保 dt 有效
+            if (!dt || dt <= 0) dt = 1;
 
             // 更新游戏时间（倒计时）
             if (game.startTime > 0) {
@@ -1199,18 +1328,18 @@
             for (let i = game.particles.length - 1; i >= 0; i--) {
                 const p = game.particles[i];
 
-                // 更新位置
-                p.x += p.vx;
-                p.y += p.vy;
+                // 更新位置（使用 delta time）
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
 
                 // 应用重力
-                p.vy += p.gravity;
+                p.vy += p.gravity * dt;
 
                 // 更新旋转
-                p.rotation += p.rotationSpeed;
+                p.rotation += p.rotationSpeed * dt;
 
                 // 淡出
-                p.life -= p.fadeSpeed;
+                p.life -= p.fadeSpeed * dt;
 
                 // 移除消失的粒子
                 if (p.life <= 0 || p.y > canvas.height) {
@@ -1228,9 +1357,9 @@
                 const damping = 0.8;
 
                 const acceleration = (targetX - game.paddle.x) * springStrength;
-                game.paddle.vx += acceleration;
-                game.paddle.vx *= damping;
-                game.paddle.x += game.paddle.vx;
+                game.paddle.vx += acceleration * dt;
+                game.paddle.vx *= Math.pow(damping, dt);
+                game.paddle.x += game.paddle.vx * dt;
 
                 game.paddle.x = Math.max(game.paddle.width/2,
                                 Math.min(canvas.width - game.paddle.width/2, game.paddle.x));
@@ -1250,8 +1379,8 @@
                     ball.trail.shift();
                 }
 
-                ball.x += ball.vx;
-                ball.y += ball.vy;
+                ball.x += ball.vx * dt;
+                ball.y += ball.vy * dt;
 
                 // 墙壁碰撞
                 if (ball.x - CONFIG.ballRadius < 0 || ball.x + CONFIG.ballRadius > canvas.width) {
@@ -1691,6 +1820,22 @@
             const seconds = game.gameTime % 60;
             document.getElementById('headerTime').textContent =
                 `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            // 更新调试面板 FPS 显示
+            if (debugCheckbox.checked) {
+                const fpsEl = document.getElementById('fpsValue');
+                if (fpsEl) {
+                    fpsEl.textContent = currentFPS;
+                    // 根据帧率显示不同颜色
+                    if (currentFPS >= 55) {
+                        fpsEl.style.color = '#4ade80'; // 绿色 - 良好
+                    } else if (currentFPS >= 30) {
+                        fpsEl.style.color = '#fbbf24'; // 黄色 - 一般
+                    } else {
+                        fpsEl.style.color = '#ef4444'; // 红色 - 较差
+                    }
+                }
+            }
         }
 
         function showGameOver(message = '游戏结束') {
@@ -1724,8 +1869,26 @@
             document.getElementById('gameOverOverlay').classList.remove('show');
         }
 
-        function gameLoop() {
-            updateGame();
+        function gameLoop(currentTime) {
+            // 计算 delta time
+            if (lastFrameTime === 0) {
+                lastFrameTime = currentTime;
+            }
+            deltaTime = (currentTime - lastFrameTime) / TARGET_FRAME_TIME; // 标准化为目标帧时间的倍数
+            lastFrameTime = currentTime;
+
+            // 限制 delta time 防止跳帧过大（如切换标签页后）
+            if (deltaTime > 3) deltaTime = 3;
+
+            // 计算 FPS
+            frameCount++;
+            if (currentTime - fpsLastTime >= 1000) {
+                currentFPS = frameCount;
+                frameCount = 0;
+                fpsLastTime = currentTime;
+            }
+
+            updateGame(deltaTime);
             renderGame();
             requestAnimationFrame(gameLoop);
         }
