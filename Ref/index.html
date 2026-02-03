@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双拳打砖块</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+        .panel {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .panel h3 {
+            margin-bottom: 10px;
+            color: #e94560;
+            font-size: 14px;
+        }
+        #videoCanvas {
+            border-radius: 8px;
+            transform: scaleX(-1);
+        }
+        #gameCanvas {
+            border-radius: 8px;
+            background: #0f0f23;
+        }
+        .status {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+        }
+        .status .active { color: #4ade80; }
+        .status .inactive { color: #ef4444; }
+        .instructions {
+            background: #1e3a5f;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .instructions h4 {
+            color: #60a5fa;
+            margin-bottom: 8px;
+        }
+        .hand-indicator {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .hand {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+        .hand.left { background: #3b82f6; }
+        .hand.right { background: #ef4444; }
+        .hand.detected { opacity: 1; }
+        .hand.not-detected { opacity: 0.3; }
+        .debug-panel {
+            background: #0d1b2a;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 11px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        .debug-panel h4 {
+            color: #fbbf24;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        .debug-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+            padding: 2px 0;
+            border-bottom: 1px solid #1e3a5f33;
+        }
+        .debug-label { color: #888; }
+        .debug-row span:last-child {
+            color: #4ade80;
+            font-weight: bold;
+        }
+        .score-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            text-align: center;
+        }
+        .score-display .score {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        .score-display .label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel">
+            <h3>📷 摄像头 (双拳检测)</h3>
+            <canvas id="videoCanvas" width="480" height="360"></canvas>
+            <div class="hand-indicator">
+                <div id="leftHandStatus" class="hand left not-detected">左拳: 未检测</div>
+                <div id="rightHandStatus" class="hand right not-detected">右拳: 未检测</div>
+            </div>
+            <div class="status">
+                状态: <span id="status">正在初始化...</span>
+            </div>
+            <div class="debug-panel">
+                <h4>调试信息</h4>
+                <div class="debug-row">
+                    <span class="debug-label">挡板角度:</span>
+                    <span id="debugAngle">0°</span>
+                </div>
+                <div class="debug-row">
+                    <span class="debug-label">挡板位置:</span>
+                    <span id="debugPaddleX">-</span>
+                </div>
+                <div class="debug-row">
+                    <span class="debug-label">双拳中心:</span>
+                    <span id="debugCenter">-</span>
+                </div>
+                <div class="debug-row">
+                    <span class="debug-label">球数量:</span>
+                    <span id="debugBalls">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="panel">
+            <h3>🎮 双拳打砖块</h3>
+            <canvas id="gameCanvas" width="480" height="600"></canvas>
+            <div class="score-display">
+                <div class="label">得分</div>
+                <div class="score" id="scoreDisplay">0</div>
+            </div>
+            <div class="instructions">
+                <h4>操作说明</h4>
+                <p>✊✊ <strong>双拳连线</strong> → 控制挡板倾斜角度</p>
+                <p>↔️ <strong>双拳一起移动</strong> → 挡板左右移动</p>
+                <p>🖐️🖐️ <strong>双手张开</strong> → 发射新球</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MediaPipe Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <script>
+        // ============ 游戏状态 ============
+        const game = {
+            // 挡板
+            paddle: {
+                x: 240,
+                y: 550,
+                width: 100,
+                height: 15,
+                angle: 0  // 弧度
+            },
+            // 球
+            balls: [],
+            ballSpeed: 6,
+            ballRadius: 8,
+            // 砖块
+            bricks: [],
+            brickRows: 5,
+            brickCols: 8,
+            brickWidth: 55,
+            brickHeight: 20,
+            brickPadding: 5,
+            brickOffsetTop: 50,
+            brickOffsetLeft: 15,
+            // 分数
+            score: 0,
+            // 手势状态
+            leftHand: {
+                detected: false,
+                isOpen: false,
+                x: 0,
+                y: 0
+            },
+            rightHand: {
+                detected: false,
+                isOpen: false,
+                x: 0,
+                y: 0
+            },
+            // 双拳控制
+            bothFistsDetected: false,
+            prevCenterX: 0.5,
+            hasPrevCenter: false,
+            bothWereOpen: false  // 用于检测双手张开
+        };
+
+        // ============ Canvas 设置 ============
+        const videoCanvas = document.getElementById('videoCanvas');
+        const videoCtx = videoCanvas.getContext('2d');
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gameCtx = gameCanvas.getContext('2d');
+
+        // ============ 初始化砖块 ============
+        function initBricks() {
+            game.bricks = [];
+            const colors = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
+            for (let row = 0; row < game.brickRows; row++) {
+                for (let col = 0; col < game.brickCols; col++) {
+                    game.bricks.push({
+                        x: game.brickOffsetLeft + col * (game.brickWidth + game.brickPadding),
+                        y: game.brickOffsetTop + row * (game.brickHeight + game.brickPadding),
+                        width: game.brickWidth,
+                        height: game.brickHeight,
+                        color: colors[row],
+                        alive: true
+                    });
+                }
+            }
+        }
+
+        // ============ 手势识别工具函数 ============
+        function isHandOpen(landmarks) {
+            const fingerTips = [8, 12, 16, 20];
+            const fingerPIPs = [6, 10, 14, 18];
+            let extendedFingers = 0;
+            for (let i = 0; i < 4; i++) {
+                if (landmarks[fingerTips[i]].y < landmarks[fingerPIPs[i]].y) {
+                    extendedFingers++;
+                }
+            }
+            return extendedFingers >= 3;
+        }
+
+        function getPalmCenter(landmarks) {
+            return {
+                x: (landmarks[0].x + landmarks[9].x) / 2,
+                y: (landmarks[0].y + landmarks[9].y) / 2
+            };
+        }
+
+        // ============ MediaPipe 手势检测 ============
+        const hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.5
+        });
+
+        hands.onResults(onResults);
+
+        function onResults(results) {
+            videoCtx.save();
+            videoCtx.clearRect(0, 0, videoCanvas.width, videoCanvas.height);
+            videoCtx.drawImage(results.image, 0, 0, videoCanvas.width, videoCanvas.height);
+
+            // 保存上一帧状态
+            const prevBothOpen = game.leftHand.isOpen && game.rightHand.isOpen &&
+                                  game.leftHand.detected && game.rightHand.detected;
+
+            // 重置
+            game.leftHand.detected = false;
+            game.rightHand.detected = false;
+
+            if (results.multiHandLandmarks && results.multiHandedness) {
+                for (let i = 0; i < results.multiHandLandmarks.length; i++) {
+                    const landmarks = results.multiHandLandmarks[i];
+                    const handedness = results.multiHandedness[i];
+                    const isLeftHand = handedness.label === 'Right'; // 镜像
+
+                    drawHandLandmarks(landmarks, isLeftHand ? '#3b82f6' : '#ef4444');
+
+                    const isOpen = isHandOpen(landmarks);
+                    const palmCenter = getPalmCenter(landmarks);
+
+                    if (isLeftHand) {
+                        game.leftHand.detected = true;
+                        game.leftHand.isOpen = isOpen;
+                        game.leftHand.x = palmCenter.x;
+                        game.leftHand.y = palmCenter.y;
+                    } else {
+                        game.rightHand.detected = true;
+                        game.rightHand.isOpen = isOpen;
+                        game.rightHand.x = palmCenter.x;
+                        game.rightHand.y = palmCenter.y;
+                    }
+                }
+            }
+
+            // 检测双拳状态
+            game.bothFistsDetected = game.leftHand.detected && game.rightHand.detected &&
+                                      !game.leftHand.isOpen && !game.rightHand.isOpen;
+
+            // 检测双手都张开 → 发射球
+            const bothOpen = game.leftHand.detected && game.rightHand.detected &&
+                             game.leftHand.isOpen && game.rightHand.isOpen;
+
+            if (bothOpen && !prevBothOpen) {
+                launchBall();
+            }
+
+            videoCtx.restore();
+            updateUI();
+        }
+
+        function drawHandLandmarks(landmarks, color) {
+            const connections = [
+                [0,1],[1,2],[2,3],[3,4],
+                [0,5],[5,6],[6,7],[7,8],
+                [0,9],[9,10],[10,11],[11,12],
+                [0,13],[13,14],[14,15],[15,16],
+                [0,17],[17,18],[18,19],[19,20],
+                [5,9],[9,13],[13,17]
+            ];
+
+            videoCtx.strokeStyle = color;
+            videoCtx.lineWidth = 2;
+
+            for (const [i, j] of connections) {
+                videoCtx.beginPath();
+                videoCtx.moveTo(landmarks[i].x * videoCanvas.width, landmarks[i].y * videoCanvas.height);
+                videoCtx.lineTo(landmarks[j].x * videoCanvas.width, landmarks[j].y * videoCanvas.height);
+                videoCtx.stroke();
+            }
+
+            for (const point of landmarks) {
+                videoCtx.beginPath();
+                videoCtx.arc(point.x * videoCanvas.width, point.y * videoCanvas.height, 4, 0, 2 * Math.PI);
+                videoCtx.fillStyle = color;
+                videoCtx.fill();
+            }
+        }
+
+        // ============ 游戏逻辑 ============
+
+        function launchBall() {
+            // 发射方向垂直于挡板（向上偏转挡板角度）
+            const angle = game.paddle.angle - Math.PI / 2;
+            game.balls.push({
+                x: game.paddle.x,
+                y: game.paddle.y - 20,
+                vx: Math.cos(angle) * game.ballSpeed,
+                vy: Math.sin(angle) * game.ballSpeed
+            });
+        }
+
+        function updateGame() {
+            // 双拳控制挡板
+            if (game.leftHand.detected && game.rightHand.detected) {
+                // 镜像后的坐标（视频是镜像显示的）
+                const leftX = 1 - game.leftHand.x;
+                const rightX = 1 - game.rightHand.x;
+                const leftY = game.leftHand.y;
+                const rightY = game.rightHand.y;
+
+                // 计算双拳连线角度（用镜像后的坐标）
+                const dx = rightX - leftX;
+                const dy = rightY - leftY;
+                let angle = Math.atan2(dy, dx);
+
+                // 限制角度范围 (-60° 到 60°)
+                const maxAngle = Math.PI / 3;
+                angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
+                game.paddle.angle = angle;
+
+                // 计算双拳中心点（用镜像后的坐标）
+                const centerX = (leftX + rightX) / 2;
+
+                // 中心点控制挡板位置
+                game.paddle.x = centerX * gameCanvas.width;
+                game.paddle.x = Math.max(game.paddle.width/2,
+                                Math.min(gameCanvas.width - game.paddle.width/2, game.paddle.x));
+            }
+
+            // 更新球
+            for (let i = game.balls.length - 1; i >= 0; i--) {
+                const ball = game.balls[i];
+
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+
+                // 墙壁碰撞
+                if (ball.x - game.ballRadius < 0 || ball.x + game.ballRadius > gameCanvas.width) {
+                    ball.vx = -ball.vx;
+                    ball.x = Math.max(game.ballRadius, Math.min(gameCanvas.width - game.ballRadius, ball.x));
+                }
+                if (ball.y - game.ballRadius < 0) {
+                    ball.vy = -ball.vy;
+                    ball.y = game.ballRadius;
+                }
+
+                // 球落出底部
+                if (ball.y > gameCanvas.height + 50) {
+                    game.balls.splice(i, 1);
+                    continue;
+                }
+
+                // 挡板碰撞（简化：矩形碰撞）
+                if (checkPaddleCollision(ball)) {
+                    // 根据挡板角度反弹
+                    const normal = game.paddle.angle - Math.PI / 2;
+                    const speed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+
+                    // 计算反弹方向（加入一些随机性避免无限循环）
+                    const hitPos = (ball.x - game.paddle.x) / (game.paddle.width / 2);
+                    const bounceAngle = normal + hitPos * 0.5;
+
+                    ball.vx = Math.cos(bounceAngle) * speed;
+                    ball.vy = Math.sin(bounceAngle) * speed;
+
+                    // 确保球向上
+                    if (ball.vy > 0) ball.vy = -ball.vy;
+
+                    ball.y = game.paddle.y - game.ballRadius - game.paddle.height/2 - 1;
+                }
+
+                // 砖块碰撞
+                for (const brick of game.bricks) {
+                    if (brick.alive && checkBrickCollision(ball, brick)) {
+                        brick.alive = false;
+                        ball.vy = -ball.vy;
+                        game.score += 10;
+                        break;
+                    }
+                }
+            }
+
+            // 检查游戏胜利
+            if (game.bricks.every(b => !b.alive)) {
+                initBricks();
+                game.score += 100;
+            }
+        }
+
+        function checkPaddleCollision(ball) {
+            const paddleLeft = game.paddle.x - game.paddle.width / 2;
+            const paddleRight = game.paddle.x + game.paddle.width / 2;
+            const paddleTop = game.paddle.y - game.paddle.height / 2;
+            const paddleBottom = game.paddle.y + game.paddle.height / 2;
+
+            return ball.x + game.ballRadius > paddleLeft &&
+                   ball.x - game.ballRadius < paddleRight &&
+                   ball.y + game.ballRadius > paddleTop &&
+                   ball.y - game.ballRadius < paddleBottom &&
+                   ball.vy > 0;
+        }
+
+        function checkBrickCollision(ball, brick) {
+            return ball.x + game.ballRadius > brick.x &&
+                   ball.x - game.ballRadius < brick.x + brick.width &&
+                   ball.y + game.ballRadius > brick.y &&
+                   ball.y - game.ballRadius < brick.y + brick.height;
+        }
+
+        function renderGame() {
+            gameCtx.clearRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            // 背景
+            gameCtx.fillStyle = '#0f0f23';
+            gameCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            // 绘制砖块
+            for (const brick of game.bricks) {
+                if (brick.alive) {
+                    gameCtx.fillStyle = brick.color;
+                    gameCtx.shadowColor = brick.color;
+                    gameCtx.shadowBlur = 8;
+                    gameCtx.fillRect(brick.x, brick.y, brick.width, brick.height);
+                    gameCtx.shadowBlur = 0;
+
+                    // 高光
+                    gameCtx.fillStyle = 'rgba(255,255,255,0.3)';
+                    gameCtx.fillRect(brick.x, brick.y, brick.width, 3);
+                }
+            }
+
+            // 绘制挡板（可旋转）
+            gameCtx.save();
+            gameCtx.translate(game.paddle.x, game.paddle.y);
+            gameCtx.rotate(game.paddle.angle);
+
+            // 挡板主体
+            const gradient = gameCtx.createLinearGradient(0, -game.paddle.height/2, 0, game.paddle.height/2);
+            gradient.addColorStop(0, '#60a5fa');
+            gradient.addColorStop(1, '#3b82f6');
+            gameCtx.fillStyle = gradient;
+            gameCtx.shadowColor = '#3b82f6';
+            gameCtx.shadowBlur = 15;
+            gameCtx.fillRect(-game.paddle.width/2, -game.paddle.height/2, game.paddle.width, game.paddle.height);
+            gameCtx.shadowBlur = 0;
+
+            // 挡板边框
+            gameCtx.strokeStyle = '#93c5fd';
+            gameCtx.lineWidth = 2;
+            gameCtx.strokeRect(-game.paddle.width/2, -game.paddle.height/2, game.paddle.width, game.paddle.height);
+
+            // 方向指示箭头
+            gameCtx.fillStyle = '#ffffff';
+            gameCtx.beginPath();
+            gameCtx.moveTo(0, -game.paddle.height/2 - 15);
+            gameCtx.lineTo(-8, -game.paddle.height/2 - 5);
+            gameCtx.lineTo(8, -game.paddle.height/2 - 5);
+            gameCtx.closePath();
+            gameCtx.fill();
+
+            gameCtx.restore();
+
+            // 绘制球
+            for (const ball of game.balls) {
+                gameCtx.beginPath();
+                gameCtx.arc(ball.x, ball.y, game.ballRadius, 0, Math.PI * 2);
+                gameCtx.fillStyle = '#fbbf24';
+                gameCtx.shadowColor = '#fbbf24';
+                gameCtx.shadowBlur = 15;
+                gameCtx.fill();
+                gameCtx.shadowBlur = 0;
+            }
+
+            // 提示文字
+            if (game.balls.length === 0) {
+                gameCtx.fillStyle = 'rgba(255,255,255,0.8)';
+                gameCtx.font = '18px Segoe UI';
+                gameCtx.textAlign = 'center';
+                gameCtx.fillText('🖐️🖐️ 双手张开发射球！', gameCanvas.width/2, gameCanvas.height/2);
+            }
+        }
+
+        function gameLoop() {
+            updateGame();
+            renderGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ============ UI 更新 ============
+        function updateUI() {
+            const leftStatus = document.getElementById('leftHandStatus');
+            const rightStatus = document.getElementById('rightHandStatus');
+
+            if (game.leftHand.detected) {
+                leftStatus.className = 'hand left detected';
+                leftStatus.textContent = `左: ${game.leftHand.isOpen ? '🖐️' : '✊'}`;
+            } else {
+                leftStatus.className = 'hand left not-detected';
+                leftStatus.textContent = '左: -';
+            }
+
+            if (game.rightHand.detected) {
+                rightStatus.className = 'hand right detected';
+                rightStatus.textContent = `右: ${game.rightHand.isOpen ? '🖐️' : '✊'}`;
+            } else {
+                rightStatus.className = 'hand right not-detected';
+                rightStatus.textContent = '右: -';
+            }
+
+            // 调试信息
+            const angleDeg = (game.paddle.angle * 180 / Math.PI).toFixed(1);
+            document.getElementById('debugAngle').textContent = `${angleDeg}°`;
+            document.getElementById('debugPaddleX').textContent = game.paddle.x.toFixed(0);
+
+            if (game.leftHand.detected && game.rightHand.detected) {
+                const cx = ((game.leftHand.x + game.rightHand.x) / 2).toFixed(2);
+                document.getElementById('debugCenter').textContent = cx;
+            } else {
+                document.getElementById('debugCenter').textContent = '-';
+            }
+
+            document.getElementById('debugBalls').textContent = game.balls.length;
+            document.getElementById('scoreDisplay').textContent = game.score;
+        }
+
+        // ============ 初始化 ============
+        async function init() {
+            const statusEl = document.getElementById('status');
+
+            initBricks();
+
+            try {
+                statusEl.innerHTML = '<span class="inactive">正在请求摄像头权限...</span>';
+
+                const video = document.createElement('video');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 }
+                });
+                video.srcObject = stream;
+                await video.play();
+
+                statusEl.innerHTML = '<span class="inactive">正在加载手势识别模型...</span>';
+
+                const camera = new Camera(video, {
+                    onFrame: async () => {
+                        await hands.send({ image: video });
+                    },
+                    width: 640,
+                    height: 480
+                });
+
+                await camera.start();
+
+                statusEl.innerHTML = '<span class="active">✓ 运行中</span>';
+
+                gameLoop();
+
+            } catch (error) {
+                console.error('初始化失败:', error);
+                statusEl.innerHTML = `<span class="inactive">错误: ${error.message}</span>`;
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
