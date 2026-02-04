@@ -572,7 +572,7 @@
                 </div>
                 <div class="header-item avatar">
                     <div class="avatar-circle">
-                        <img src="assets/images/head1.gif" alt="Avatar">
+                        <img id="avatarImg" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Avatar">
                     </div>
                 </div>
                 <div class="header-item">
@@ -2062,6 +2062,11 @@
                 if (animProgress >= 1) {
                     game.started = true;
                     game.rulesWindow.hiding = false;
+                    // 开始游戏后播放 gif 动画
+                    const avatarImg = document.getElementById('avatarImg');
+                    if (avatarImg) {
+                        avatarImg.src = 'assets/images/head1.gif';
+                    }
                     return;  // 不再绘制窗口
                 }
             }
@@ -2257,6 +2262,11 @@
             // 挡板归位
             game.paddle.x = canvas.width / 2;
             game.paddle.vx = 0;
+            // 重置头像图片，停止播放 gif
+            const avatarImg = document.getElementById('avatarImg');
+            if (avatarImg) {
+                avatarImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            }
             initBricks();
             document.getElementById('gameOverOverlay').classList.remove('show');
         }
