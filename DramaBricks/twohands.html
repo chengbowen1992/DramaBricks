@@ -1273,8 +1273,18 @@
             return baseScore;  // 仅基础分
         }
 
-        // 创建飘字效果
-        function createFloatingText(x, y, score, color = '#ffd700') {
+        // 创建飘字效果（根据额外 Combo 分数决定颜色）
+        function createFloatingText(x, y, score) {
+            const baseScore = 10;
+            const extraComboScore = Math.max(0, score - baseScore);
+
+            let color = '#ffffff';          // 默认白色
+            if (extraComboScore > 0 && extraComboScore <= 10) {
+                color = '#ffd700';          // 1~10 额外分：黄色
+            } else if (extraComboScore > 10) {
+                color = '#ff4444';          // >10 额外分：红色
+            }
+
             game.floatingTexts.push({
                 x: x,
                 y: y,
@@ -1320,7 +1330,7 @@
                     // 创建飘字效果
                     const textX = brick.x + brick.width / 2;
                     const textY = brick.y + brick.height / 2;
-                    createFloatingText(textX, textY, scoreGained, brick.color);
+                    createFloatingText(textX, textY, scoreGained);
                 }
             }
 
@@ -1867,7 +1877,7 @@
                         // 创建飘字效果
                         const textX = brick.x + brick.width / 2;
                         const textY = brick.y + brick.height / 2;
-                        createFloatingText(textX, textY, scoreGained, brick.color);
+                        createFloatingText(textX, textY, scoreGained);
                         break;
                     }
                 }
@@ -2067,22 +2077,18 @@
                 ctx.restore();
             }
 
-            // 绘制飘字效果
+            // 绘制飘字效果（无描边，只保留发光文字）
             for (const ft of game.floatingTexts) {
                 ctx.save();
                 ctx.globalAlpha = ft.life;
                 ctx.translate(ft.x, ft.y);
                 ctx.scale(ft.scale, ft.scale);
 
-                // 绘制文字描边（黑色轮廓）
                 ctx.font = 'bold 16px Segoe UI';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-                ctx.lineWidth = 3;
-                ctx.strokeText(ft.text, 0, 0);
 
-                // 绘制文字填充（使用砖块颜色）
+                // 直接使用砖块颜色绘制发光文字
                 ctx.fillStyle = ft.color;
                 ctx.shadowColor = ft.color;
                 ctx.shadowBlur = 8;

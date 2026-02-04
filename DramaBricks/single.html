@@ -464,6 +464,34 @@
                 margin-bottom: 15px;
             }
         }
+
+        /* 竖屏 + 镜头模式：游戏顶部固定、镜头底部固定，确保都在可视区域内 */
+        body.portrait-camera {
+            padding-top: 0;
+        }
+        body.portrait-camera .main-container {
+            position: fixed !important;
+            top: 60px !important;  /* 与顶部按钮保持适量距离 */
+            left: 50% !important;
+            transform-origin: top center;
+        }
+        body.portrait-camera .video-panel {
+            position: fixed !important;
+            bottom: 5px !important;  /* 整体下移，更贴近底部 */
+            left: 50% !important;
+            top: auto !important;
+            transform: translateX(-50%) !important;
+            z-index: 50;
+            padding: 6px !important;  /* 减少内边距 */
+        }
+        body.portrait-camera .video-panel h3 {
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+        body.portrait-camera .video-panel .status {
+            margin-top: 4px;
+            font-size: 11px;
+        }
     </style>
 </head>
 <body>
@@ -562,7 +590,7 @@
 
     <div class="main-container" id="mainContainer">
         <div class="game-panel">
-            <h2>🎯 单人热身赛</h2>
+            <h2>🎯 单人热身模式</h2>
 
             <!-- 顶部信息栏 -->
             <div class="game-header">
@@ -616,6 +644,7 @@
             } else {
                 videoPanel.classList.add('hidden');
             }
+            updatePortraitCameraLayout();
         });
 
         // 调试模式开关 - 只控制调试面板
@@ -628,42 +657,72 @@
         });
 
         // ============ 自动缩放适配 ============
+        // 竖屏 + 镜头模式时，顶部预留(按钮)、底部镜头窗口预留、中间间隙
+        const PORTRAIT_CAMERA_TOP = 60;
+        const VIDEO_PANEL_HEIGHT_PORTRAIT = 200;
+        const PORTRAIT_CAMERA_GAP = 20;
+
         function adjustScale() {
             const container = document.getElementById('mainContainer');
             if (!container) return;
 
-            // 游戏面板的原始尺寸（游戏面板始终居中，镜头和调试面板独立定位）
-            const gameWidth = 430;  // 游戏面板宽度 + padding
-            const gameHeight = 620; // 游戏面板高度 + padding
+            const gameWidth = 430;
+            const gameHeight = 620;
 
-            // 获取可用视口尺寸（减去一些边距）
-            const viewportWidth = window.innerWidth - 40;
-            const viewportHeight = window.innerHeight - 100; // 留出顶部按钮空间
+            const isPortrait = window.innerHeight > window.innerWidth;
+            const isCameraOn = cameraCheckbox.checked;
 
-            // 计算缩放比例（取宽高中较小的比例，确保完全显示）
-            const scaleX = viewportWidth / gameWidth;
-            const scaleY = viewportHeight / gameHeight;
-            let scale = Math.min(scaleX, scaleY, 1); // 最大不超过1（不放大）
+            let scale;
+            let transformStr;
 
-            // 最小缩放限制，防止过小
-            scale = Math.max(scale, 0.3);
+            if (isPortrait && isCameraOn) {
+                // 竖屏+镜头：游戏固定在顶部，镜头在底部；按可用高度计算缩放
+                const availWidth = window.innerWidth - 20;
+                const availHeight = window.innerHeight - PORTRAIT_CAMERA_TOP - VIDEO_PANEL_HEIGHT_PORTRAIT - PORTRAIT_CAMERA_GAP;
+                const scaleX = availWidth / gameWidth;
+                const scaleY = availHeight / gameHeight;
+                scale = Math.min(scaleX, scaleY, 1.0);
+                scale = Math.max(scale, 0.3);
+                transformStr = `translateX(-50%) scale(${scale})`;
+            } else {
+                const padW = isPortrait ? 20 : 40;
+                const padH = isPortrait ? 80 : 100;
+                const viewportWidth = window.innerWidth - padW;
+                const viewportHeight = window.innerHeight - padH;
+                const scaleX = viewportWidth / gameWidth;
+                const scaleY = viewportHeight / gameHeight;
+                const maxScale = isPortrait ? 1.2 : 1;
+                scale = Math.min(scaleX, scaleY, maxScale);
+                scale = Math.max(scale, 0.3);
+                transformStr = `scale(${scale})`;
+            }
 
-            // 应用缩放
-            container.style.transform = `scale(${scale})`;
+            container.style.transform = transformStr;
 
-            console.log(`屏幕适配: ${window.innerWidth}x${window.innerHeight}, 缩放比例: ${scale.toFixed(2)}`);
+            console.log(`屏幕适配: ${window.innerWidth}x${window.innerHeight}, 竖屏:${isPortrait}, 镜头:${isCameraOn}, 缩放: ${scale.toFixed(2)}`);
+        }
+
+        function updatePortraitCameraLayout() {
+            const isPortrait = window.innerHeight > window.innerWidth;
+            const isCameraOn = cameraCheckbox.checked;
+            if (isPortrait && isCameraOn) {
+                document.body.classList.add('portrait-camera');
+            } else {
+                document.body.classList.remove('portrait-camera');
+            }
+            adjustScale();
         }
 
         // 监听窗口大小变化
-        window.addEventListener('resize', adjustScale);
+        window.addEventListener('resize', updatePortraitCameraLayout);
 
         // 监听屏幕方向变化（移动设备）
         window.addEventListener('orientationchange', () => {
-            setTimeout(adjustScale, 100); // 延迟执行，等待方向变化完成
+            setTimeout(updatePortraitCameraLayout, 100);
         });
 
         // 初始调用
-        setTimeout(adjustScale, 100);
+        setTimeout(updatePortraitCameraLayout, 100);
 
         // ============ 背景音乐控制 ============
         const bgMusic = document.getElementById('bgMusic');
@@ -1167,8 +1226,18 @@
             return baseScore;  // 仅基础分
         }
 
-        // 创建飘字效果
-        function createFloatingText(x, y, score, color = '#ffd700') {
+        // 创建飘字效果（根据额外 Combo 分数决定颜色）
+        function createFloatingText(x, y, score) {
+            const baseScore = 10;
+            const extraComboScore = Math.max(0, score - baseScore);
+
+            let color = '#ffffff';          // 默认白色
+            if (extraComboScore > 0 && extraComboScore <= 10) {
+                color = '#ffd700';          // 1~10 额外分：黄色
+            } else if (extraComboScore > 10) {
+                color = '#ff4444';          // >10 额外分：红色
+            }
+
             game.floatingTexts.push({
                 x: x,
                 y: y,
@@ -1214,7 +1283,7 @@
                     // 创建飘字效果
                     const textX = brick.x + brick.width / 2;
                     const textY = brick.y + brick.height / 2;
-                    createFloatingText(textX, textY, scoreGained, brick.color);
+                    createFloatingText(textX, textY, scoreGained);
                 }
             }
 
@@ -1685,7 +1754,7 @@
                         // 创建飘字效果
                         const textX = brick.x + brick.width / 2;
                         const textY = brick.y + brick.height / 2;
-                        createFloatingText(textX, textY, scoreGained, brick.color);
+                        createFloatingText(textX, textY, scoreGained);
                         break;
                     }
                 }
@@ -1885,22 +1954,18 @@
                 ctx.restore();
             }
 
-            // 绘制飘字效果
+            // 绘制飘字效果（无描边，只保留发光文字）
             for (const ft of game.floatingTexts) {
                 ctx.save();
                 ctx.globalAlpha = ft.life;
                 ctx.translate(ft.x, ft.y);
                 ctx.scale(ft.scale, ft.scale);
 
-                // 绘制文字描边（黑色轮廓）
                 ctx.font = 'bold 16px Segoe UI';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-                ctx.lineWidth = 3;
-                ctx.strokeText(ft.text, 0, 0);
 
-                // 绘制文字填充（使用砖块颜色）
+                // 直接使用砖块颜色绘制发光文字
                 ctx.fillStyle = ft.color;
                 ctx.shadowColor = ft.color;
                 ctx.shadowBlur = 8;
@@ -2041,7 +2106,7 @@
                 ctx.fillStyle = 'rgba(255,255,255,0.7)';
                 ctx.font = '16px Segoe UI';
                 ctx.textAlign = 'center';
-                ctx.fillText('握拳→张开发球', canvas.width/2, canvas.height/2);
+                ctx.fillText('握拳→张开=>发球', canvas.width/2, canvas.height/2);
             }
 
             // 游戏规则介绍窗口（游戏开始前显示，包括消失动画期间）
