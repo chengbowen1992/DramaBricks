@@ -150,31 +150,39 @@
             transform: translateY(-2px) scale(0.98);
         }
 
-        /* 单人热身赛 - 绿色 */
+        /* 单人热身赛 - 橙色（使用双人PK赛的颜色） */
         .mode-btn.single {
-            background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+            background: linear-gradient(135deg, #f953c6 0%, #b91d73 100%);
             box-shadow:
-                0 8px 20px rgba(86, 171, 47, 0.4),
+                0 8px 20px rgba(249, 83, 198, 0.4),
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
         .mode-btn.single:hover {
             box-shadow:
-                0 12px 30px rgba(86, 171, 47, 0.6),
+                0 12px 30px rgba(249, 83, 198, 0.6),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
-        /* 单人双手赛 - 青蓝 */
+        /* 单人双手赛 - 彩虹渐变（使用双人抓马赛的颜色） */
         .mode-btn.twohands {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            background: linear-gradient(135deg,
+                #667eea 0%,
+                #764ba2 25%,
+                #f857a6 50%,
+                #ff5858 75%,
+                #f7971e 100%);
             box-shadow:
-                0 8px 20px rgba(17, 153, 142, 0.4),
+                0 8px 20px rgba(138, 43, 226, 0.4),
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            animation: rainbowPulse 3s ease infinite;
         }
 
         .mode-btn.twohands:hover {
+            animation: rainbowPulse 1.5s ease infinite;
             box-shadow:
-                0 12px 30px rgba(17, 153, 142, 0.6),
+                0 12px 30px rgba(138, 43, 226, 0.6),
+                0 0 40px rgba(255, 88, 88, 0.3),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
@@ -358,6 +366,7 @@
                 </div>
             </a>
 
+            <!--
             <div class="buttons-row">
                 <a href="versus.html" class="mode-btn versus">
                     <span class="mode-icon">⚔️</span>
@@ -375,11 +384,12 @@
                     </div>
                 </a>
             </div>
+            -->
         </div>
     </div>
 
     <div class="footer">
-        Game Jam 2026 · Made with 💗 x 💗
+        Game Jam 2026 · Made with ❤️
     </div>
 
     <!-- 背景音乐 -->
