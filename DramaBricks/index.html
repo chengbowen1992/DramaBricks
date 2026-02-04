@@ -86,6 +86,22 @@
             animation: fadeInUp 1s ease 0.3s both;
         }
 
+        /* 下面两个按钮同一行：左按钮左对齐、右按钮右对齐第一行按钮，高度与第一行一致 */
+        .buttons-row {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: stretch;
+            width: 100%;
+            gap: 16px;
+        }
+
+        .buttons-row .mode-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+
         /* 游戏模式按钮 */
         .mode-btn {
             position: relative;
@@ -146,6 +162,20 @@
         .mode-btn.single:hover {
             box-shadow:
                 0 12px 30px rgba(86, 171, 47, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        /* 单人双手赛 - 青蓝 */
+        .mode-btn.twohands {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            box-shadow:
+                0 8px 20px rgba(17, 153, 142, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .mode-btn.twohands:hover {
+            box-shadow:
+                0 12px 30px rgba(17, 153, 142, 0.6),
                 inset 0 1px 0 rgba(255, 255, 255, 0.2);
         }
 
@@ -284,6 +314,13 @@
             .title h2 { font-size: 22px; letter-spacing: 4px; }
             .mode-btn { font-size: 20px; padding: 20px 30px; }
             .mode-icon { font-size: 28px; }
+            .buttons-row {
+                flex-direction: column;
+            }
+            .buttons-row .mode-btn {
+                width: 100%;
+                flex: 1 1 auto;
+            }
         }
     </style>
 </head>
@@ -314,21 +351,31 @@
                 </div>
             </a>
 
-            <a href="versus.html" class="mode-btn versus">
-                <span class="mode-icon">⚔️</span>
+            <a href="twohands.html" class="mode-btn twohands">
+                <span class="mode-icon">🤲</span>
                 <div>
-                    <div>双人PK赛</div>
-                    <div class="mode-subtitle">1v1 Battle</div>
+                    <div>单人双手赛</div>
+                    <div class="mode-subtitle">Two Hands Solo</div>
                 </div>
             </a>
 
-            <a href="drama.html" class="mode-btn drama">
-                <span class="mode-icon">🎭</span>
-                <div>
-                    <div>双人抓马赛</div>
-                    <div class="mode-subtitle">Drama Mode</div>
-                </div>
-            </a>
+            <div class="buttons-row">
+                <a href="versus.html" class="mode-btn versus">
+                    <span class="mode-icon">⚔️</span>
+                    <div>
+                        <div>双人PK赛</div>
+                        <div class="mode-subtitle">1v1 Battle</div>
+                    </div>
+                </a>
+
+                <a href="drama.html" class="mode-btn drama">
+                    <span class="mode-icon">🎭</span>
+                    <div>
+                        <div>双人抓马赛</div>
+                        <div class="mode-subtitle">Drama Mode</div>
+                    </div>
+                </a>
+            </div>
         </div>
     </div>
 
