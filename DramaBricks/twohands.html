@@ -1014,6 +1014,13 @@
             bricks: [],
             particles: [],  // 砖块碎片粒子
             floatingTexts: [],  // 飘字效果
+            started: false,  // 游戏是否已开始（规则窗口点开始后为 true）
+            startButton: null,  // 开始按钮位置
+            rulesWindow: {  // 规则窗口动画
+                hiding: false,
+                hideStartTime: 0,
+                hideDuration: 400
+            },
             score: 0,
             heat: 0,
             heatMode: false,
@@ -1067,6 +1074,35 @@
         };
 
         let gameOver = false;
+
+        // ============ Canvas 点击事件（开始按钮）============
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('touchend', handleCanvasClick);
+
+        function handleCanvasClick(e) {
+            e.preventDefault();
+            if (game.started || gameOver) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            let clickX, clickY;
+            if (e.type === 'touchend' && e.changedTouches) {
+                clickX = (e.changedTouches[0].clientX - rect.left) * scaleX;
+                clickY = (e.changedTouches[0].clientY - rect.top) * scaleY;
+            } else {
+                clickX = (e.clientX - rect.left) * scaleX;
+                clickY = (e.clientY - rect.top) * scaleY;
+            }
+
+            const btn = game.startButton;
+            if (btn && clickX >= btn.x && clickX <= btn.x + btn.width &&
+                clickY >= btn.y && clickY <= btn.y + btn.height) {
+                game.rulesWindow.hiding = true;
+                game.rulesWindow.hideStartTime = Date.now();
+            }
+        }
 
         // ============ 帧率控制（Delta Time） ============
         let lastFrameTime = 0;
@@ -1467,7 +1503,7 @@
             const bothOpen = game.leftHand.detected && game.rightHand.detected &&
                              game.leftHand.isOpen && game.rightHand.isOpen;
 
-            if (bothOpen && !prevBothOpen && game.balls.length === 0) {
+            if (game.started && bothOpen && !prevBothOpen && game.balls.length === 0) {
                 launchBall();
             }
 
@@ -1645,8 +1681,8 @@
                 }
             }
 
-            // 双手控制挡板（位置+旋转）
-            if (game.leftHand.detected && game.rightHand.detected) {
+            // 双手控制挡板（位置+旋转），仅游戏开始后响应
+            if (game.started && game.leftHand.detected && game.rightHand.detected) {
                 // 镜像后的坐标（视频是镜像显示的）
                 const leftX = 1 - game.leftHand.x;
                 const rightX = 1 - game.rightHand.x;
@@ -1687,7 +1723,7 @@
 
                 game.paddle.x = Math.max(game.paddle.width/2,
                                 Math.min(canvas.width - game.paddle.width/2, game.paddle.x));
-            } else if (game.leftHand.detected || game.rightHand.detected) {
+            } else if (game.started && (game.leftHand.detected || game.rightHand.detected)) {
                 // 单手时只控制位置，不旋转，同样应用手部移动范围映射
                 const hand = game.leftHand.detected ? game.leftHand : game.rightHand;
                 const handX = 1 - hand.x; // 镜像
@@ -2198,12 +2234,137 @@
                 }
             }
 
-            // 提示文字
-            if (game.balls.length === 0 && !gameOver) {
+            // 游戏规则介绍窗口（游戏开始前显示，包括消失动画期间）
+            if (!game.started && !gameOver) {
+                drawRulesWindow();
+            } else if (game.balls.length === 0 && !gameOver) {
                 ctx.fillStyle = 'rgba(255,255,255,0.7)';
                 ctx.font = '16px Segoe UI';
                 ctx.textAlign = 'center';
                 ctx.fillText('🖐️🖐️ 双手张开发球', canvas.width/2, canvas.height/2);
+            }
+        }
+
+        // 绘制规则介绍窗口（双手模式）
+        function drawRulesWindow() {
+            let animProgress = 0;
+            if (game.rulesWindow.hiding) {
+                const elapsed = Date.now() - game.rulesWindow.hideStartTime;
+                animProgress = Math.min(elapsed / game.rulesWindow.hideDuration, 1);
+                if (animProgress >= 1) {
+                    game.started = true;
+                    game.rulesWindow.hiding = false;
+                    return;
+                }
+            }
+
+            const easeOut = 1 - Math.pow(1 - animProgress, 3);
+            const alpha = 1 - easeOut;
+            const scale = 1 - easeOut * 0.3;
+            const offsetY = -easeOut * 50;
+
+            const windowWidth = 340;
+            const windowHeight = 260;
+            const baseCenterX = canvas.width / 2;
+            const baseCenterY = 160 + windowHeight / 2;
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(baseCenterX, baseCenterY + offsetY);
+            ctx.scale(scale, scale);
+            ctx.translate(-baseCenterX, -baseCenterY);
+
+            const windowX = (canvas.width - windowWidth) / 2;
+            const windowY = 160;
+
+            ctx.fillStyle = 'rgba(22, 33, 62, 0.98)';
+            ctx.strokeStyle = 'rgba(168, 224, 99, 0.8)';
+            ctx.lineWidth = 3;
+
+            const radius = 16;
+            ctx.beginPath();
+            ctx.moveTo(windowX + radius, windowY);
+            ctx.lineTo(windowX + windowWidth - radius, windowY);
+            ctx.quadraticCurveTo(windowX + windowWidth, windowY, windowX + windowWidth, windowY + radius);
+            ctx.lineTo(windowX + windowWidth, windowY + windowHeight - radius);
+            ctx.quadraticCurveTo(windowX + windowWidth, windowY + windowHeight, windowX + windowWidth - radius, windowY + windowHeight);
+            ctx.lineTo(windowX + radius, windowY + windowHeight);
+            ctx.quadraticCurveTo(windowX, windowY + windowHeight, windowX, windowY + windowHeight - radius);
+            ctx.lineTo(windowX, windowY + radius);
+            ctx.quadraticCurveTo(windowX, windowY, windowX + radius, windowY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#a8e063';
+            ctx.font = 'bold 20px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(168, 224, 99, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.fillText('🎮 游戏规则', canvas.width / 2, windowY + 35);
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = 'rgba(168, 224, 99, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(windowX + 25, windowY + 55);
+            ctx.lineTo(windowX + windowWidth - 25, windowY + 55);
+            ctx.stroke();
+
+            const rules = [
+                { icon: '🖐️🖐️', text: '双手同时张开发球' },
+                { icon: '🏓', text: '球击中挡板，Combo+1' },
+                { icon: '🧱', text: '击破砖块+10分，额外+Combo分' }
+            ];
+
+            const ruleStartY = windowY + 85;
+            const ruleLineHeight = 40;
+
+            rules.forEach((rule, index) => {
+                const y = ruleStartY + index * ruleLineHeight;
+                ctx.font = '18px Segoe UI';
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#ffd700';
+                ctx.fillText(rule.icon, windowX + 30, y);
+                ctx.font = '15px Segoe UI';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.fillText(rule.text, windowX + 85, y);
+            });
+
+            const btnWidth = 160;
+            const btnHeight = 42;
+            const btnX = (canvas.width - btnWidth) / 2;
+            const btnY = windowY + windowHeight - 60;
+
+            game.startButton = { x: btnX, y: btnY, width: btnWidth, height: btnHeight };
+
+            const btnGradient = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnHeight);
+            btnGradient.addColorStop(0, '#56ab2f');
+            btnGradient.addColorStop(1, '#a8e063');
+
+            ctx.fillStyle = btnGradient;
+            ctx.shadowColor = 'rgba(86, 171, 47, 0.6)';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.roundRect(btnX, btnY, btnWidth, btnHeight, 10);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 16px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('▶ 开始游戏', canvas.width / 2, btnY + btnHeight / 2);
+            ctx.textBaseline = 'alphabetic';
+
+            ctx.restore();
+
+            if (game.rulesWindow.hiding) {
+                game.startButton = null;
             }
         }
 
@@ -2296,6 +2457,9 @@
 
         function restartGame() {
             gameOver = false;
+            game.started = false;
+            game.rulesWindow.hiding = false;
+            game.rulesWindow.hideStartTime = 0;
             game.balls = [];
             game.particles = [];  // 清空粒子
             game.floatingTexts = [];  // 清空飘字
