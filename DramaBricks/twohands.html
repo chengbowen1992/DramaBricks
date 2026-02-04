@@ -781,52 +781,141 @@
             }
         }
 
-        // 立即尝试播放音乐
-        function tryPlayMusic() {
-            bgMusic.play().then(() => {
-                console.log('音乐开始播放');
-                musicStarted = true;
-            }).catch(err => {
-                console.log('音乐需要用户交互才能播放，等待用户点击...');
-            });
-        }
+        // ============ 音效控制（使用 Web Audio API，iOS 兼容）============
 
-        // 页面加载后立即尝试
-        tryPlayMusic();
+        // Web Audio API 上下文（只需解锁一次）
+        let audioContext = null;
+        let audioBuffers = {
+            board: null,
+            bomb: null
+        };
+        let audioLoaded = false;
+        let audioUnlocked = false;
 
-        let musicStarted = false;
-        function tryStartMusic() {
-            if (!musicStarted) {
-                bgMusic.play().then(() => {
-                    console.log('用户交互后音乐开始播放');
-                    musicStarted = true;
-                }).catch(err => {
-                    console.log('音乐播放失败:', err);
-                });
+        // 音效的目标音量
+        const BOARD_SOUND_VOLUME = 0.3;
+        const BOMB_SOUND_VOLUME = 0.5;
+
+        // 初始化 Web Audio API
+        async function initWebAudio() {
+            try {
+                // 创建 AudioContext（兼容旧版 Safari）
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContextClass();
+
+                // 加载音频文件为 buffer
+                const [boardBuffer, bombBuffer] = await Promise.all([
+                    loadAudioBuffer('assets/audio/ai_board.wav'),
+                    loadAudioBuffer('assets/audio/ai_bomb.wav')
+                ]);
+
+                audioBuffers.board = boardBuffer;
+                audioBuffers.bomb = bombBuffer;
+                audioLoaded = true;
+                console.log('✓ 音效加载完成');
+            } catch (err) {
+                console.error('Web Audio 初始化失败:', err);
             }
         }
 
-        // 监听多种用户交互事件
-        document.addEventListener('click', tryStartMusic);
-        document.addEventListener('keydown', tryStartMusic);
-        document.addEventListener('touchstart', tryStartMusic);
-
-        // ============ 音效控制 ============
-        const boardSound = document.getElementById('boardSound');
-        const bombSound = document.getElementById('bombSound');
-        boardSound.volume = 0.3;
-        bombSound.volume = 0.5;
-
-        function playBoardSound() {
-            const sound = boardSound.cloneNode(true);
-            sound.volume = 0.3;
-            sound.play().catch(err => {});
+        // 加载单个音频文件为 AudioBuffer
+        async function loadAudioBuffer(url) {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            return await audioContext.decodeAudioData(arrayBuffer);
         }
 
+        // 解锁音频（iOS 必须在用户交互时调用）
+        function unlockAudio() {
+            if (audioUnlocked) return;
+
+            // 解锁背景音乐
+            bgMusic.play().then(() => {
+                console.log('✓ 背景音乐开始播放');
+            }).catch(err => {
+                console.log('背景音乐等待解锁...');
+            });
+
+            // 解锁 Web Audio API
+            if (audioContext) {
+                // 如果被暂停，恢复它
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        console.log('✓ AudioContext 已恢复');
+                    });
+                }
+
+                // 如果音频已加载，播放一个静音的短音来确保完全解锁
+                if (audioLoaded && audioBuffers.board) {
+                    try {
+                        const silentSource = audioContext.createBufferSource();
+                        const silentGain = audioContext.createGain();
+                        silentGain.gain.value = 0;  // 静音
+                        silentSource.buffer = audioBuffers.board;
+                        silentSource.connect(silentGain);
+                        silentGain.connect(audioContext.destination);
+                        silentSource.start(0);
+                        silentSource.stop(audioContext.currentTime + 0.001);
+                    } catch (e) {
+                        console.log('静音解锁失败:', e);
+                    }
+                }
+
+                // 只要 AudioContext 存在且状态正常，就标记为已解锁
+                if (audioContext.state === 'running' || audioLoaded) {
+                    audioUnlocked = true;
+                    console.log('✓ 音效已解锁，状态:', audioContext.state);
+
+                    // 解锁成功，移除监听器
+                    document.removeEventListener('click', unlockAudio);
+                    document.removeEventListener('touchstart', unlockAudio);
+                    document.removeEventListener('touchend', unlockAudio);
+                    document.removeEventListener('keydown', unlockAudio);
+                }
+            }
+        }
+
+        // 监听多种用户交互事件来解锁音频
+        document.addEventListener('click', unlockAudio);
+        document.addEventListener('touchstart', unlockAudio);
+        document.addEventListener('touchend', unlockAudio);
+        document.addEventListener('keydown', unlockAudio);
+
+        // 开始加载音频
+        initWebAudio();
+
+        // 播放音效（使用 Web Audio API）
+        function playSound(buffer, volume) {
+            // 桌面浏览器：即使没有用户交互也尝试播放
+            if (!audioContext || !buffer) return;
+
+            // 如果还没解锁，尝试恢复 AudioContext
+            if (!audioUnlocked && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+
+            try {
+                const source = audioContext.createBufferSource();
+                const gainNode = audioContext.createGain();
+                gainNode.gain.value = volume;
+
+                source.buffer = buffer;
+                source.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                source.start(0);
+            } catch (err) {
+                console.log('音效播放失败:', err);
+            }
+        }
+
+        // 播放挡板音效
+        function playBoardSound() {
+            playSound(audioBuffers.board, BOARD_SOUND_VOLUME);
+        }
+
+        // 播放炸弹音效
         function playBombSound() {
-            const sound = bombSound.cloneNode(true);
-            sound.volume = 0.5;
-            sound.play().catch(err => {});
+            playSound(audioBuffers.bomb, BOMB_SOUND_VOLUME);
         }
 
         // ============ 游戏配置 ============
