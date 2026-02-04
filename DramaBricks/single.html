@@ -909,6 +909,8 @@
             bricks: [],
             particles: [],  // 砖块碎片粒子
             floatingTexts: [],  // 飘字效果
+            started: false,  // 游戏是否已开始
+            startButton: null,  // 开始按钮位置
             score: 0,
             heat: 0,
             heatMode: false,
@@ -966,6 +968,39 @@
         let frameCount = 0;
         let fpsLastTime = 0;
         let currentFPS = 0;
+
+        // ============ Canvas 点击事件（开始按钮）============
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('touchend', handleCanvasClick);
+
+        function handleCanvasClick(e) {
+            e.preventDefault();
+
+            // 如果游戏已开始，不处理
+            if (game.started || gameOver) return;
+
+            // 获取点击位置
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+
+            let clickX, clickY;
+            if (e.type === 'touchend' && e.changedTouches) {
+                clickX = (e.changedTouches[0].clientX - rect.left) * scaleX;
+                clickY = (e.changedTouches[0].clientY - rect.top) * scaleY;
+            } else {
+                clickX = (e.clientX - rect.left) * scaleX;
+                clickY = (e.clientY - rect.top) * scaleY;
+            }
+
+            // 检测是否点击了开始按钮
+            const btn = game.startButton;
+            if (btn && clickX >= btn.x && clickX <= btn.x + btn.width &&
+                clickY >= btn.y && clickY <= btn.y + btn.height) {
+                game.started = true;
+                console.log('游戏开始！');
+            }
+        }
 
         // ============ 初始化砖块 ============
         function initBricks() {
@@ -1369,7 +1404,7 @@
 
         // ============ 游戏逻辑 ============
         function launchBall() {
-            if (gameOver) return;
+            if (gameOver || !game.started) return;
 
             // 如果是第一次发球，记录开始时间
             if (game.balls.length === 0 && game.bricks.every(b => b.alive)) {
@@ -1509,7 +1544,8 @@
             }
 
             // 手控制挡板（只控制移动，不控制旋转）
-            if (game.hand.detected) {
+            // 只有游戏开始后才能操作挡板
+            if (game.hand.detected && game.started) {
                 const centerX = canvas.width / 2;
                 const handOffset = game.hand.x - 0.5;
                 const targetX = centerX + handOffset * CONFIG.sensitivity * canvas.width;
@@ -1993,13 +2029,124 @@
                 }
             }
 
-            // 提示文字
-            if (game.balls.length === 0 && !gameOver) {
+            // 提示文字（游戏进行中，没有球时显示）
+            if (game.balls.length === 0 && !gameOver && game.started) {
                 ctx.fillStyle = 'rgba(255,255,255,0.7)';
                 ctx.font = '16px Segoe UI';
                 ctx.textAlign = 'center';
                 ctx.fillText('握拳→张开发球', canvas.width/2, canvas.height/2);
             }
+
+            // 游戏规则介绍窗口（游戏开始前显示）
+            if (!game.started && !gameOver) {
+                drawRulesWindow();
+            }
+        }
+
+        // 绘制规则介绍窗口
+        function drawRulesWindow() {
+            const windowWidth = 340;
+            const windowHeight = 260;
+            const windowX = (canvas.width - windowWidth) / 2;
+            const windowY = 160;  // 砖块和挡板之间的位置
+
+            // 窗口背景
+            ctx.fillStyle = 'rgba(22, 33, 62, 0.98)';
+            ctx.strokeStyle = 'rgba(168, 224, 99, 0.8)';
+            ctx.lineWidth = 3;
+
+            // 圆角矩形
+            const radius = 16;
+            ctx.beginPath();
+            ctx.moveTo(windowX + radius, windowY);
+            ctx.lineTo(windowX + windowWidth - radius, windowY);
+            ctx.quadraticCurveTo(windowX + windowWidth, windowY, windowX + windowWidth, windowY + radius);
+            ctx.lineTo(windowX + windowWidth, windowY + windowHeight - radius);
+            ctx.quadraticCurveTo(windowX + windowWidth, windowY + windowHeight, windowX + windowWidth - radius, windowY + windowHeight);
+            ctx.lineTo(windowX + radius, windowY + windowHeight);
+            ctx.quadraticCurveTo(windowX, windowY + windowHeight, windowX, windowY + windowHeight - radius);
+            ctx.lineTo(windowX, windowY + radius);
+            ctx.quadraticCurveTo(windowX, windowY, windowX + radius, windowY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // 标题
+            ctx.fillStyle = '#a8e063';
+            ctx.font = 'bold 20px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.shadowColor = 'rgba(168, 224, 99, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.fillText('🎮 游戏规则', canvas.width / 2, windowY + 35);
+            ctx.shadowBlur = 0;
+
+            // 分隔线
+            ctx.strokeStyle = 'rgba(168, 224, 99, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(windowX + 25, windowY + 55);
+            ctx.lineTo(windowX + windowWidth - 25, windowY + 55);
+            ctx.stroke();
+
+            // 规则文字
+            const rules = [
+                { icon: '✊→✋', text: '握拳→张手 = 发射球' },
+                { icon: '🏓', text: '球击中挡板，Combo+1' },
+                { icon: '🧱', text: '消除一个砖块+10分，额外获得Combo分' }
+            ];
+
+            const ruleStartY = windowY + 85;
+            const ruleLineHeight = 40;
+
+            rules.forEach((rule, index) => {
+                const y = ruleStartY + index * ruleLineHeight;
+
+                // 图标
+                ctx.font = '18px Segoe UI';
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#ffd700';
+                ctx.fillText(rule.icon, windowX + 30, y);
+
+                // 文字
+                ctx.font = '15px Segoe UI';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.fillText(rule.text, windowX + 85, y);
+            });
+
+            // 开始按钮
+            const btnWidth = 160;
+            const btnHeight = 42;
+            const btnX = (canvas.width - btnWidth) / 2;
+            const btnY = windowY + windowHeight - 60;
+
+            // 保存按钮位置供点击检测
+            game.startButton = { x: btnX, y: btnY, width: btnWidth, height: btnHeight };
+
+            // 按钮背景渐变
+            const btnGradient = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnHeight);
+            btnGradient.addColorStop(0, '#56ab2f');
+            btnGradient.addColorStop(1, '#a8e063');
+
+            ctx.fillStyle = btnGradient;
+            ctx.shadowColor = 'rgba(86, 171, 47, 0.6)';
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.roundRect(btnX, btnY, btnWidth, btnHeight, 10);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // 按钮边框
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 按钮文字
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 16px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('▶ 开始游戏', canvas.width / 2, btnY + btnHeight / 2);
+            ctx.textBaseline = 'alphabetic';
         }
 
         function updateUI() {
@@ -2044,6 +2191,7 @@
 
         function restartGame() {
             gameOver = false;
+            game.started = false;  // 重置为未开始，显示规则窗口
             game.balls = [];
             game.particles = [];  // 清空粒子
             game.floatingTexts = [];  // 清空飘字
