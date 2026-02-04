@@ -51,30 +51,29 @@
             width: 90%;
         }
 
-        /* 标题 */
+        /* 标题 - 三张竖向排列图片 */
         .title {
             margin-bottom: 20px;
             animation: fadeInDown 1s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
         }
 
-        .title h1 {
-            font-size: 56px;
-            font-weight: 900;
-            color: #ffffff;
-            text-shadow:
-                0 0 20px rgba(138, 43, 226, 0.6),
-                0 0 40px rgba(0, 191, 255, 0.4),
-                0 4px 8px rgba(0, 0, 0, 0.3);
-            letter-spacing: 4px;
-            margin-bottom: 10px;
+        .title img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            object-fit: contain;
         }
 
-        .title h2 {
-            font-size: 28px;
-            font-weight: 700;
-            color: #a8daff;
-            text-shadow: 0 0 15px rgba(0, 191, 255, 0.5);
-            letter-spacing: 8px;
+        .title img.title-up {
+            max-width: 420px;
+        }
+
+        .title img.title-down {
+            max-width: 520px;
         }
 
         /* 按钮容器 */
@@ -310,8 +309,8 @@
 
         /* 响应式 */
         @media (max-width: 600px) {
-            .title h1 { font-size: 42px; }
-            .title h2 { font-size: 22px; letter-spacing: 4px; }
+            .title img.title-up { max-width: 90%; }
+            .title img.title-down { max-width: 95%; }
             .mode-btn { font-size: 20px; padding: 20px 30px; }
             .mode-icon { font-size: 28px; }
             .buttons-row {
@@ -335,10 +334,10 @@
     </div>
 
     <div class="container">
-        <!-- 标题 -->
+        <!-- 标题：三张竖向排列图片 -->
         <div class="title">
-            <h1>DRAMABRICKS</h1>
-            <h2>抓马打砖块</h2>
+            <img src="assets/images/TitleUp1.png" alt="DRAMABRICKS - 抓马" class="title-up">
+            <img src="assets/images/TitleDown1.png" alt="抓马打砖块" class="title-down">
         </div>
 
         <!-- 模式选择按钮 -->
@@ -380,7 +379,7 @@
     </div>
 
     <div class="footer">
-        Game Jam 2026 · Made with 💜
+        Game Jam 2026 · Made with 💗 x 💗
     </div>
 
     <!-- 背景音乐 -->
