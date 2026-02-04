@@ -366,8 +366,14 @@
             font-size: 48px;
             font-weight: bold;
             color: #a8e063;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             text-shadow: 0 0 20px rgba(168, 224, 99, 0.6);
+        }
+        .game-over-rank {
+            font-size: 40px;
+            margin-bottom: 20px;
+            color: #fbbf24;
+            text-shadow: 0 0 18px rgba(251, 191, 36, 0.9);
         }
         .game-over-stats {
             font-size: 24px;
@@ -615,6 +621,9 @@
 
     <div id="gameOverOverlay" class="game-over-overlay">
         <div class="game-over-text">🎉 恭喜通关！</div>
+        <div class="game-over-rank">
+            本次评级: <span id="finalRank">C</span>
+        </div>
         <div class="game-over-stats">
             最终得分: <span id="finalScore">0</span><br>
             最高Combo: <span id="maxCombo">0</span>
@@ -2304,6 +2313,48 @@
         function showGameOver(message = '游戏结束') {
             document.getElementById('finalScore').textContent = game.score;
             document.getElementById('maxCombo').textContent = game.maxCombo;
+
+            // 分数评级：C/B/A/S
+            const score = game.score;
+            const scoreB = 700;
+            const scoreA = 1400;
+            const scoreS = 2000;
+            let rank = 'C';
+            if (score > scoreS) {
+                rank = 'S';
+            } else if (score >= scoreA) {
+                rank = 'A';
+            } else if (score >= scoreB) {
+                rank = 'B';
+            }
+
+            const rankEl = document.getElementById('finalRank');
+            const rankContainer = document.querySelector('#gameOverOverlay .game-over-rank');
+            if (rankEl) {
+                rankEl.textContent = rank;
+
+                // 按评级设置颜色：C=绿, B=蓝, A=紫, S=金
+                let rankColor = '#ffffff';
+                switch (rank) {
+                    case 'C':
+                        rankColor = '#4ade80'; // 绿色
+                        break;
+                    case 'B':
+                        rankColor = '#3b82f6'; // 蓝色
+                        break;
+                    case 'A':
+                        rankColor = '#a855f7'; // 紫色
+                        break;
+                    case 'S':
+                        rankColor = '#fbbf24'; // 金色
+                        break;
+                }
+
+                rankEl.style.color = rankColor;
+                if (rankContainer) {
+                    rankContainer.style.color = rankColor;
+                }
+            }
 
             // 更新游戏结束消息
             const gameOverTitle = document.querySelector('#gameOverOverlay h2');
