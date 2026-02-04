@@ -691,7 +691,7 @@
                 const viewportHeight = window.innerHeight - padH;
                 const scaleX = viewportWidth / gameWidth;
                 const scaleY = viewportHeight / gameHeight;
-                const maxScale = isPortrait ? 1.2 : 1;
+                const maxScale = isPortrait ? 1.31 : 1;
                 scale = Math.min(scaleX, scaleY, maxScale);
                 scale = Math.max(scale, 0.3);
                 transformStr = `scale(${scale})`;
@@ -1221,7 +1221,9 @@
         function calculateScore() {
             const baseScore = 10;
             if (game.heatMode && game.combo > 0) {
-                return baseScore + game.combo;  // 基础分 + Combo额外分
+                // 之前：基础分 + Combo
+                // 现在：基础分 + Combo × 2
+                return baseScore + game.combo * 2;
             }
             return baseScore;  // 仅基础分
         }
@@ -2206,7 +2208,7 @@
             const rules = [
                 { icon: '✊✋', text: '握拳→张手 = 发射球' },
                 { icon: '🏓', text: '球击中挡板，Combo+1' },
-                { icon: '🧱', text: '击破砖块+10分，额外+Combo分' },
+                { icon: '🧱', text: '击破砖块+10分，额外+Combo×2分' },
                 { icon: '💣', text: '闪烁的砖块会爆炸' }
             ];
 
