@@ -659,7 +659,7 @@
                 </div>
                 <div class="header-item avatar">
                     <div class="avatar-circle">
-                        <img src="assets/images/head1.gif" alt="Avatar">
+                        <img id="avatarImg" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Avatar">
                     </div>
                 </div>
                 <div class="header-item">
@@ -2254,6 +2254,11 @@
                 if (animProgress >= 1) {
                     game.started = true;
                     game.rulesWindow.hiding = false;
+                    // 开始游戏后播放 gif 动画
+                    const avatarImg = document.getElementById('avatarImg');
+                    if (avatarImg) {
+                        avatarImg.src = 'assets/images/head1.gif';
+                    }
                     return;
                 }
             }
@@ -2264,9 +2269,9 @@
             const offsetY = -easeOut * 50;
 
             const windowWidth = 340;
-            const windowHeight = 260;
+            const windowHeight = 300;  // 高度略微增加，容纳更多规则
             const baseCenterX = canvas.width / 2;
-            const baseCenterY = 160 + windowHeight / 2;
+            const baseCenterY = canvas.height / 2;  // 相对游戏窗口垂直居中
 
             ctx.save();
             ctx.globalAlpha = alpha;
@@ -2275,7 +2280,7 @@
             ctx.translate(-baseCenterX, -baseCenterY);
 
             const windowX = (canvas.width - windowWidth) / 2;
-            const windowY = 160;
+            const windowY = baseCenterY - windowHeight / 2;  // 相对 canvas 垂直居中
 
             ctx.fillStyle = 'rgba(22, 33, 62, 0.98)';
             ctx.strokeStyle = 'rgba(168, 224, 99, 0.8)';
@@ -2314,7 +2319,8 @@
             const rules = [
                 { icon: '🖐️🖐️', text: '双手同时张开发球' },
                 { icon: '🏓', text: '球击中挡板，Combo+1' },
-                { icon: '🧱', text: '击破砖块+10分，额外+Combo分' }
+                { icon: '🧱', text: '击破砖块+10分，额外+Combo分' },
+                { icon: '💣', text: '闪烁的砖块会爆炸' }
             ];
 
             const ruleStartY = windowY + 85;
@@ -2483,6 +2489,11 @@
             game.paddle.vx = 0;
             game.paddle.angle = 0;
             lastFrameTime = 0;  // 重置帧时间，避免重启后首帧 delta 过大导致卡顿
+            // 重置头像图片，停止播放 gif
+            const avatarImg = document.getElementById('avatarImg');
+            if (avatarImg) {
+                avatarImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            }
             initBricks();
             document.getElementById('gameOverOverlay').classList.remove('show');
         }

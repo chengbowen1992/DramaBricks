@@ -2080,9 +2080,9 @@
             const offsetY = -easeOut * 50;  // 向上移动50px
 
             const windowWidth = 340;
-            const windowHeight = 260;
+            const windowHeight = 300;  // 高度略微增加，容纳更多规则
             const baseCenterX = canvas.width / 2;
-            const baseCenterY = 160 + windowHeight / 2;
+            const baseCenterY = canvas.height / 2;  // 相对游戏窗口垂直居中
 
             // 应用动画变换
             ctx.save();
@@ -2092,7 +2092,7 @@
             ctx.translate(-baseCenterX, -baseCenterY);
 
             const windowX = (canvas.width - windowWidth) / 2;
-            const windowY = 160;  // 砖块和挡板之间的位置
+            const windowY = baseCenterY - windowHeight / 2;  // 相对 canvas 垂直居中
 
             // 窗口背景
             ctx.fillStyle = 'rgba(22, 33, 62, 0.98)';
@@ -2134,9 +2134,10 @@
 
             // 规则文字
             const rules = [
-                { icon: '✊→✋', text: '握拳→张手 = 发射球' },
+                { icon: '✊✋', text: '握拳→张手 = 发射球' },
                 { icon: '🏓', text: '球击中挡板，Combo+1' },
-                { icon: '🧱', text: '击破砖块+10分，额外+Combo分' }
+                { icon: '🧱', text: '击破砖块+10分，额外+Combo分' },
+                { icon: '💣', text: '闪烁的砖块会爆炸' }
             ];
 
             const ruleStartY = windowY + 85;
