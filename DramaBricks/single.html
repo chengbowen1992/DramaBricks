@@ -537,9 +537,9 @@
         <div class="debug-section">
             <div class="debug-label">
                 🧱 新行生成间隔
-                <span class="debug-value" id="newRowIntervalValue">10.0</span>
+                <span class="debug-value" id="newRowIntervalValue">7.0</span>
             </div>
-            <input type="range" class="debug-slider" id="newRowIntervalSlider" min="3.0" max="30.0" step="0.5" value="10.0">
+            <input type="range" class="debug-slider" id="newRowIntervalSlider" min="3.0" max="30.0" step="0.5" value="7.0">
             <div class="debug-hint">每隔 N 秒生成新砖块行</div>
         </div>
     </div>
@@ -839,7 +839,7 @@
             sensitivity: 4.0,
             speedMultiplier: 1.2,  // 热力模式下球速增长率
             maxSpeedMultiplier: 1.6,  // 最大球速倍数
-            newRowInterval: 10.0,  // 新行生成时间间隔（秒）- 改为10秒（速度减半）
+            newRowInterval: 7.0,  // 新行生成时间间隔（秒）
             deathLine: 17,  // 触底线：第18行（索引17，从0开始）
             gameTimeLimit: 60  // 游戏时间限制（秒）
         };
@@ -911,6 +911,11 @@
             floatingTexts: [],  // 飘字效果
             started: false,  // 游戏是否已开始
             startButton: null,  // 开始按钮位置
+            rulesWindow: {  // 规则窗口动画
+                hiding: false,  // 是否正在消失
+                hideStartTime: 0,  // 消失动画开始时间
+                hideDuration: 400  // 消失动画持续时间(ms)
+            },
             score: 0,
             heat: 0,
             heatMode: false,
@@ -997,8 +1002,10 @@
             const btn = game.startButton;
             if (btn && clickX >= btn.x && clickX <= btn.x + btn.width &&
                 clickY >= btn.y && clickY <= btn.y + btn.height) {
-                game.started = true;
-                console.log('游戏开始！');
+                // 启动窗口消失动画
+                game.rulesWindow.hiding = true;
+                game.rulesWindow.hideStartTime = Date.now();
+                console.log('规则窗口开始消失...');
             }
         }
 
@@ -2037,7 +2044,7 @@
                 ctx.fillText('握拳→张开发球', canvas.width/2, canvas.height/2);
             }
 
-            // 游戏规则介绍窗口（游戏开始前显示）
+            // 游戏规则介绍窗口（游戏开始前显示，包括消失动画期间）
             if (!game.started && !gameOver) {
                 drawRulesWindow();
             }
@@ -2045,8 +2052,40 @@
 
         // 绘制规则介绍窗口
         function drawRulesWindow() {
+            // 计算动画进度
+            let animProgress = 0;  // 0 = 完全显示, 1 = 完全消失
+            if (game.rulesWindow.hiding) {
+                const elapsed = Date.now() - game.rulesWindow.hideStartTime;
+                animProgress = Math.min(elapsed / game.rulesWindow.hideDuration, 1);
+
+                // 动画结束，正式开始游戏
+                if (animProgress >= 1) {
+                    game.started = true;
+                    game.rulesWindow.hiding = false;
+                    return;  // 不再绘制窗口
+                }
+            }
+
+            // 缓动函数（easeOutCubic - 先快后慢）
+            const easeOut = 1 - Math.pow(1 - animProgress, 3);
+
+            // 动画效果：透明度、缩放、向上移动
+            const alpha = 1 - easeOut;
+            const scale = 1 - easeOut * 0.3;  // 从1缩小到0.7
+            const offsetY = -easeOut * 50;  // 向上移动50px
+
             const windowWidth = 340;
             const windowHeight = 260;
+            const baseCenterX = canvas.width / 2;
+            const baseCenterY = 160 + windowHeight / 2;
+
+            // 应用动画变换
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(baseCenterX, baseCenterY + offsetY);
+            ctx.scale(scale, scale);
+            ctx.translate(-baseCenterX, -baseCenterY);
+
             const windowX = (canvas.width - windowWidth) / 2;
             const windowY = 160;  // 砖块和挡板之间的位置
 
@@ -2092,7 +2131,7 @@
             const rules = [
                 { icon: '✊→✋', text: '握拳→张手 = 发射球' },
                 { icon: '🏓', text: '球击中挡板，Combo+1' },
-                { icon: '🧱', text: '消除一个砖块+10分，额外获得Combo分' }
+                { icon: '🧱', text: '击破砖块+10分，额外+Combo分' }
             ];
 
             const ruleStartY = windowY + 85;
@@ -2147,6 +2186,14 @@
             ctx.textBaseline = 'middle';
             ctx.fillText('▶ 开始游戏', canvas.width / 2, btnY + btnHeight / 2);
             ctx.textBaseline = 'alphabetic';
+
+            // 恢复绘图状态
+            ctx.restore();
+
+            // 动画期间禁用按钮点击
+            if (game.rulesWindow.hiding) {
+                game.startButton = null;
+            }
         }
 
         function updateUI() {
@@ -2192,6 +2239,8 @@
         function restartGame() {
             gameOver = false;
             game.started = false;  // 重置为未开始，显示规则窗口
+            game.rulesWindow.hiding = false;  // 重置窗口动画状态
+            game.rulesWindow.hideStartTime = 0;
             game.balls = [];
             game.particles = [];  // 清空粒子
             game.floatingTexts = [];  // 清空飘字
@@ -2205,6 +2254,9 @@
             game.nextRowTime = 0;  // 重置新行时间
             game.brickTransition.active = false;  // 重置过渡动画
             game.backgroundFlash.currentBgColor = '#0f0f23';  // 重置背景色
+            // 挡板归位
+            game.paddle.x = canvas.width / 2;
+            game.paddle.vx = 0;
             initBricks();
             document.getElementById('gameOverOverlay').classList.remove('show');
         }
